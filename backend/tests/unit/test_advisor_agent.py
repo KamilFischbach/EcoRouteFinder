@@ -1,4 +1,4 @@
-"""AdvisorAgent with a scripted fake LLM: tool loop, grounding check and rule-based fallback."""
+"""AdvisorAgent with a scripted fake LLM: tool loop, grounding and summary checks, fallback."""
 
 import json
 from collections.abc import Callable
@@ -7,7 +7,7 @@ import pytest
 
 from app.ai.advisor_agent import MAX_STEPS, AdvisorAgent, FinalAdvice, rule_based_advice
 from app.ai.llm_client import LLMError, LLMResponse
-from app.ai.prompts import ADVISOR_FINAL_V1, ADVISOR_SYSTEM_V2
+from app.ai.prompts import ADVISOR_FINAL_V2, ADVISOR_SYSTEM_V3
 from app.ai.tools import build_tool_registry
 from app.models.trip import TransportMode
 from app.services.comparison_models import ComparisonResult
@@ -28,8 +28,7 @@ RAIN = make_weather(precipitation_mm=1.4, weather_code=63)
 def final(mode: str = "train", **overrides: object) -> LLMResponse:
     body = {
         "recommended_mode": mode,
-        "summary": "Take the train: 9.4 kg CO2 per person.",
-        "reasons": ["Lowest CO2 of the practical options", "About 3 h 37 min"],
+        "summary": f"Take the {mode.replace('_', ' ')}: it suits this trip well.",
     }
     body.update(overrides)
     return reply(json.dumps(body))
@@ -71,11 +70,13 @@ def test_tool_call_then_result_then_final_answer() -> None:
     assert answer.used_llm is True
     assert answer.model == "fake:1b"
     assert answer.recommended_mode is M.TRAIN
-    assert answer.reasons == ["Lowest CO2 of the practical options", "About 3 h 37 min"]
+    assert answer.summary == "Take the train: it suits this trip well."
+    assert answer.reasons[0] == "9.3 kg CO₂ per person, 38.0 kg less than driving alone."
+    assert "Lowest CO₂ of the practical options." in answer.reasons
     assert [(t.tool, t.ok) for t in answer.tool_trace] == [("calculate_emissions", True)]
 
     first, second, last = client.requests
-    assert first["messages"][0]["content"] == ADVISOR_SYSTEM_V2
+    assert first["messages"][0]["content"] == ADVISOR_SYSTEM_V3
     context = first["messages"][1]["content"]
     assert '"user_preferences": "what if we were 4?"' in context
     assert '"weather_at_destination"' in context
@@ -90,7 +91,7 @@ def test_tool_call_then_result_then_final_answer() -> None:
     assert json.loads(tool_msg["content"])["co2_kg_per_person"] == pytest.approx(9.28)
     assert last["tools"] is None
     assert last["response_schema"] == FinalAdvice.model_json_schema()
-    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V1
+    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V2
 
 
 def test_answer_without_tools() -> None:
@@ -158,10 +159,10 @@ def test_impractical_recommendation_falls_back() -> None:
     [
         reply("Take the train, it's great."),
         reply('{"recommended_mode": "train"}'),
-        reply('{"recommended_mode": "teleport", "summary": "x", "reasons": ["y"]}'),
-        final(reasons=[]),
+        reply('{"recommended_mode": "teleport", "summary": "x"}'),
+        final(summary="  "),
     ],
-    ids=["not-json", "missing-fields", "unknown-mode", "no-reasons"],
+    ids=["not-json", "missing-fields", "unknown-mode", "empty-summary"],
 )
 def test_bad_final_json_falls_back(bad_final: LLMResponse) -> None:
     agent, _ = make_agent(FakeLLMClient([reply("Thinking."), bad_final]))
@@ -170,6 +171,57 @@ def test_bad_final_json_falls_back(bad_final: LLMResponse) -> None:
 
     assert answer.used_llm is False
     assert answer.recommended_mode is M.TRAIN
+
+
+def test_reasons_come_from_data_not_from_the_model() -> None:
+    client = FakeLLMClient([reply("Hm."), final("coach", reasons=["Coach is free!"])])
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is True
+    assert "Coach is free!" not in answer.reasons
+    assert answer.reasons[:2] == [
+        "11.6 kg CO₂ per person, 35.8 kg less than driving alone.",
+        "About 4 h 26 min door to door, roughly 53 PLN per person.",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("mode", "summary"),
+    [
+        ("train", "The train is green and one of the cheapest options."),  # smoke test: priciest
+        ("coach", "Take the coach, the fastest way there."),
+        ("coach", "The coach is cheaper than the electric car."),
+        ("coach", "Autobus jest najtańszą opcją."),
+        ("coach", "Take the coach: it emits only 4.2 kg of CO2."),  # invented number
+    ],
+)
+def test_summary_that_contradicts_the_data_falls_back(mode: str, summary: str) -> None:
+    client = FakeLLMClient([reply("Hm."), final(mode, summary=summary)])
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is False
+    assert answer.recommended_mode is M.TRAIN
+    assert answer.summary.startswith("Train has the lowest CO₂")
+
+
+def test_summary_with_tool_numbers_is_accepted() -> None:
+    client = FakeLLMClient(
+        [
+            call_tool("calculate_emissions", distance_km=300, mode="train", passengers=4),
+            reply("Done."),
+            final(summary="Take the train, the greenest option: 9.28 kg each even for 4 people."),
+        ]
+    )
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip(), "what if we were 4?")
+
+    assert answer.used_llm is True
+    assert answer.summary.startswith("Take the train, the greenest option")
 
 
 def test_llm_error_falls_back() -> None:
@@ -252,6 +304,14 @@ def test_fallback_keeps_bike_in_good_weather() -> None:
 
 def test_fallback_keeps_bike_without_weather_data() -> None:
     assert rule_based_advice(short_trip(), None, None).recommended_mode is M.BIKE
+
+
+def test_fallback_reasons_rank_within_remaining_options() -> None:
+    answer = rule_based_advice(short_trip(), "I have luggage", make_weather())
+
+    assert answer.recommended_mode is M.TRAIN
+    assert "Bike skipped because you mentioned luggage." in answer.reasons
+    assert "Lowest CO₂ of the remaining options." in answer.reasons
 
 
 @pytest.mark.parametrize(
