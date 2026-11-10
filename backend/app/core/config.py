@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     geocoder_url: str = "https://nominatim.openstreetmap.org"
     routing_url: str = "https://router.project-osrm.org"
     http_timeout_s: float = 8.0
+    # Current weather for the advisor (Open-Meteo, no API key).
+    weather_url: str = "https://api.open-meteo.com"
     # Nominatim's usage policy requires an identifying User-Agent.
     http_user_agent: str = "EcoRoute/0.1 (+https://github.com/KamilFischbach/EcoRouteFinder)"
 

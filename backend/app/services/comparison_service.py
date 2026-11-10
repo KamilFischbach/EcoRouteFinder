@@ -10,6 +10,7 @@ stores a snapshot; history reads return that snapshot without recomputing.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from app.core.errors import NotFoundError, RouteTooShortError
 from app.models.comparison import Comparison
@@ -109,6 +110,14 @@ class ComparisonService:
 
     def delete(self, comparison_id: int) -> None:
         self._repo().delete(self._get_record(comparison_id))
+
+    def save_advice(
+        self, comparison_id: int, advice: dict[str, Any], recommended_mode: TransportMode
+    ) -> SavedComparison:
+        record = self._get_record(comparison_id)
+        record.advice = advice
+        record.recommended_mode = recommended_mode
+        return snapshot.to_saved(self._repo().save(record))
 
     # --- helpers ----------------------------------------------------------------
 

@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict
+from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 from app.models.trip import TransportMode
 from app.schemas.trip import DistanceKm, Passengers, PlaceName
@@ -15,6 +15,7 @@ def _assume_utc(value: datetime) -> datetime:
 
 
 UtcDatetime = Annotated[datetime, AfterValidator(_assume_utc)]
+Preferences = Annotated[str, StringConstraints(strip_whitespace=True, max_length=300)]
 
 
 class ComparisonCreate(BaseModel):
@@ -61,6 +62,40 @@ class HighlightsRead(_FromAttributes):
     cheapest: TransportMode | None
 
 
+class AdviceCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    preferences: Preferences | None = None
+    """Free text such as "I have luggage" or "cheapest please"."""
+
+
+class WeatherRead(_FromAttributes):
+    location: str
+    temperature_c: float
+    precipitation_mm: float
+    wind_kph: float
+    weather_code: int | None
+    description: str | None
+
+
+class ToolTraceRead(_FromAttributes):
+    tool: str
+    arguments: dict[str, Any]
+    ok: bool
+
+
+class AdviceRead(_FromAttributes):
+    recommended_mode: TransportMode
+    summary: str
+    reasons: list[str]
+    used_llm: bool
+    model: str | None
+    weather: WeatherRead | None
+    preferences: str | None
+    tool_trace: list[ToolTraceRead]
+    created_at: UtcDatetime
+
+
 class ComparisonRead(_FromAttributes):
     """A stored comparison: the snapshot taken when it was created, plus advice if any."""
 
@@ -70,8 +105,7 @@ class ComparisonRead(_FromAttributes):
     passengers: int
     options: list[ComparisonOptionRead]
     highlights: HighlightsRead
-    # TODO(ai): replace with a typed AdviceRead once the advisor exists.
-    advice: dict[str, Any] | None
+    advice: AdviceRead | None
 
 
 class ComparisonSummaryRead(_FromAttributes):

@@ -10,10 +10,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
-from app.api.deps import get_llm_client, get_route_provider
+from app.api.deps import get_llm_client, get_route_provider, get_weather_service
 from app.db import get_session, init_db
 from app.main import create_app
-from tests.fakes import FakeLLMClient, FakeRouteProvider
+from tests.fakes import FakeLLMClient, FakeRouteProvider, FakeWeather, make_weather
 
 TripPayload = dict[str, Any]
 
@@ -52,15 +52,22 @@ def llm_fixture() -> LLMSlot:
     return LLMSlot()
 
 
+@pytest.fixture(name="weather")
+def weather_fixture() -> FakeWeather:
+    """Mild, dry weather by default; tests can change `weather.weather`."""
+    return FakeWeather(make_weather())
+
+
 @pytest.fixture(name="client")
 def client_fixture(
-    session: Session, route_provider: FakeRouteProvider, llm: LLMSlot
+    session: Session, route_provider: FakeRouteProvider, llm: LLMSlot, weather: FakeWeather
 ) -> Iterator[TestClient]:
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
     # Never hit Nominatim/OSRM or Ollama from tests.
     app.dependency_overrides[get_route_provider] = lambda: route_provider
     app.dependency_overrides[get_llm_client] = lambda: llm.client
+    app.dependency_overrides[get_weather_service] = lambda: weather
     # Not used as a context manager on purpose: that would run the lifespan,
     # which initialises the on-disk database from settings.
     yield TestClient(app)

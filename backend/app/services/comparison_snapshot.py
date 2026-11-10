@@ -8,6 +8,7 @@ Snapshot format (`Comparison.result`), versioned so it can evolve::
 """
 
 from dataclasses import asdict
+from datetime import datetime
 from typing import Any
 
 from app.models.comparison import Comparison
@@ -101,6 +102,14 @@ def to_saved(record: Comparison) -> SavedComparison:
         highlights=highlights_from_snapshot(record.result),
         advice=record.advice,
     )
+
+
+def to_advice_json(answer: Any, created_at: datetime) -> dict[str, Any]:
+    """Serialise an AdvisorAnswer (dataclass) to the JSON stored in `Comparison.advice`."""
+    data: dict[str, Any] = asdict(answer)
+    data["recommended_mode"] = answer.recommended_mode.value
+    data["created_at"] = created_at.isoformat()
+    return data
 
 
 def to_summary(record: Comparison) -> ComparisonSummary:

@@ -52,6 +52,10 @@ class RouteInfo:
 class RouteProvider(Protocol):
     def get_route(self, origin: str, destination: str) -> RouteInfo: ...
 
+    def geocode(self, query: str) -> Place:
+        """Raises PlaceNotFoundError or ExternalServiceError."""
+        ...
+
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Great-circle distance between two points in km."""

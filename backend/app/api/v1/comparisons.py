@@ -4,8 +4,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, status
 
-from app.api.deps import ComparisonServiceDep
-from app.schemas.comparison import ComparisonCreate, ComparisonRead, ComparisonSummaryRead
+from app.api.deps import AdviceServiceDep, ComparisonServiceDep
+from app.schemas.comparison import (
+    AdviceCreate,
+    AdviceRead,
+    ComparisonCreate,
+    ComparisonRead,
+    ComparisonSummaryRead,
+)
 
 router = APIRouter(prefix="/comparisons", tags=["comparisons"])
 
@@ -35,3 +41,12 @@ def get_comparison(comparison_id: int, service: ComparisonServiceDep) -> Compari
 @router.delete("/{comparison_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_comparison(comparison_id: int, service: ComparisonServiceDep) -> None:
     service.delete(comparison_id)
+
+
+@router.post("/{comparison_id}/advice")
+def create_advice(
+    comparison_id: int, service: AdviceServiceDep, payload: AdviceCreate | None = None
+) -> AdviceRead:
+    """Always 200 for an existing comparison (rule-based advice when the LLM is unavailable)."""
+    preferences = payload.preferences if payload else None
+    return AdviceRead.model_validate(service.advise(comparison_id, preferences or None))

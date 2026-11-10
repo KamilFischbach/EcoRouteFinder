@@ -1,10 +1,12 @@
 """Test doubles shared by unit and API tests."""
 
+from dataclasses import replace
 from typing import Any
 
 from app.ai.llm_client import ChatMessage, LLMError, LLMResponse, ToolCall, ToolSpec
 from app.core.errors import AppError
 from app.services.routing import Place, RouteInfo, RouteSource
+from app.services.weather import WeatherInfo, describe_weather_code
 
 ScriptStep = LLMResponse | Exception
 
@@ -80,3 +82,41 @@ class FakeRouteProvider:
         if self.error is not None:
             raise self.error
         return self.route
+
+    def geocode(self, query: str) -> Place:
+        if self.error is not None:
+            raise self.error
+        if query == self.route.destination.query:
+            return self.route.destination
+        return Place(query, query, 52.0, 19.0)
+
+
+class FakeWeather:
+    """WeatherProvider double: fixed weather (or None) and a record of lookups."""
+
+    def __init__(self, weather: WeatherInfo | None = None) -> None:
+        self.weather = weather
+        self.lookups: list[str] = []
+
+    def current(self, lat: float, lon: float, location: str) -> WeatherInfo | None:
+        self.lookups.append(location)
+        return replace(self.weather, location=location) if self.weather else None
+
+    def for_place(self, location: str) -> WeatherInfo | None:
+        return self.current(0.0, 0.0, location)
+
+
+def make_weather(
+    temperature_c: float = 15.0,
+    precipitation_mm: float = 0.0,
+    wind_kph: float = 10.0,
+    weather_code: int | None = 1,
+) -> WeatherInfo:
+    return WeatherInfo(
+        location="Kraków",
+        temperature_c=temperature_c,
+        precipitation_mm=precipitation_mm,
+        wind_kph=wind_kph,
+        weather_code=weather_code,
+        description=describe_weather_code(weather_code),
+    )

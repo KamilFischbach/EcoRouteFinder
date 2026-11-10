@@ -1,0 +1,273 @@
+"""AdvisorAgent with a scripted fake LLM: tool loop, grounding check and rule-based fallback."""
+
+import json
+from collections.abc import Callable
+
+import pytest
+
+from app.ai.advisor_agent import MAX_STEPS, AdvisorAgent, FinalAdvice, rule_based_advice
+from app.ai.llm_client import LLMError, LLMResponse
+from app.ai.prompts import ADVISOR_FINAL_V1, ADVISOR_SYSTEM_V2
+from app.ai.tools import build_tool_registry
+from app.models.trip import TransportMode
+from app.services.comparison_models import ComparisonResult
+from app.services.comparison_service import ComparisonService
+from tests.fakes import (
+    FakeLLMClient,
+    FakeRouteProvider,
+    FakeWeather,
+    call_tool,
+    make_weather,
+    reply,
+)
+
+M = TransportMode
+RAIN = make_weather(precipitation_mm=1.4, weather_code=63)
+
+
+def final(mode: str = "train", **overrides: object) -> LLMResponse:
+    body = {
+        "recommended_mode": mode,
+        "summary": "Take the train: 9.4 kg CO2 per person.",
+        "reasons": ["Lowest CO2 of the practical options", "About 3 h 37 min"],
+    }
+    body.update(overrides)
+    return reply(json.dumps(body))
+
+
+def long_trip() -> ComparisonResult:
+    """Warszawa -> Kraków for 2: train is the greenest practical option; plane and bike aren't."""
+    return ComparisonService(FakeRouteProvider()).compute("Warszawa", "Kraków", passengers=2)
+
+
+def short_trip() -> ComparisonResult:
+    """12 km, entered by hand (no coordinates): the bike is practical and the greenest."""
+    return ComparisonService(FakeRouteProvider()).compute("Home", "Work", 1, distance_km=12)
+
+
+def make_agent(
+    client: FakeLLMClient | None, weather: FakeWeather | None = None
+) -> tuple[AdvisorAgent, FakeWeather]:
+    weather = weather or FakeWeather(make_weather())
+    tools = build_tool_registry(ComparisonService(FakeRouteProvider()), weather)
+    return AdvisorAgent(client, tools, weather), weather
+
+
+# --- LLM path -------------------------------------------------------------------------
+
+
+def test_tool_call_then_result_then_final_answer() -> None:
+    client = FakeLLMClient(
+        [
+            call_tool("calculate_emissions", distance_km=300, mode="train", passengers=4),
+            reply("With 4 people the train is still 9.3 kg each."),
+            final("train"),
+        ]
+    )
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip(), "what if we were 4?")
+
+    assert answer.used_llm is True
+    assert answer.model == "fake:1b"
+    assert answer.recommended_mode is M.TRAIN
+    assert answer.reasons == ["Lowest CO2 of the practical options", "About 3 h 37 min"]
+    assert [(t.tool, t.ok) for t in answer.tool_trace] == [("calculate_emissions", True)]
+
+    first, second, last = client.requests
+    assert first["messages"][0]["content"] == ADVISOR_SYSTEM_V2
+    context = first["messages"][1]["content"]
+    assert '"user_preferences": "what if we were 4?"' in context
+    assert '"weather_at_destination"' in context
+    assert {t["name"] for t in first["tools"]} == {
+        "compare_travel_options",
+        "get_weather",
+        "calculate_emissions",
+    }
+    tool_msg = second["messages"][-1]
+    assert tool_msg["role"] == "tool"
+    assert tool_msg["tool_name"] == "calculate_emissions"
+    assert json.loads(tool_msg["content"])["co2_kg_per_person"] == pytest.approx(9.28)
+    assert last["tools"] is None
+    assert last["response_schema"] == FinalAdvice.model_json_schema()
+    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V1
+
+
+def test_answer_without_tools() -> None:
+    client = FakeLLMClient([reply("The train is greenest."), final("coach")])
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is True
+    assert answer.recommended_mode is M.COACH
+    assert answer.tool_trace == []
+
+
+def test_unknown_tool_is_reported_back_to_the_model() -> None:
+    client = FakeLLMClient([call_tool("book_ticket", mode="train"), reply("Sorry."), final()])
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is True
+    assert [(t.tool, t.ok) for t in answer.tool_trace] == [("book_ticket", False)]
+    error = json.loads(client.requests[1]["messages"][-1]["content"])["error"]
+    assert "Unknown tool 'book_ticket'" in error
+
+
+def test_invalid_tool_arguments_are_reported_back_to_the_model() -> None:
+    client = FakeLLMClient(
+        [call_tool("calculate_emissions", distance_km=-5, mode="rocket"), reply("Hm."), final()]
+    )
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is True
+    assert answer.tool_trace[0].ok is False
+    error = json.loads(client.requests[1]["messages"][-1]["content"])["error"]
+    assert error.startswith("Invalid arguments")
+    assert "distance_km" in error and "mode" in error
+
+
+def test_too_many_steps_falls_back() -> None:
+    loop = [call_tool("get_weather", location="Kraków") for _ in range(MAX_STEPS)]
+    client = FakeLLMClient([*loop, final()])
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is False
+    assert len(client.requests) == MAX_STEPS  # no final call
+    assert len(answer.tool_trace) == MAX_STEPS  # the attempt stays visible
+
+
+def test_impractical_recommendation_falls_back() -> None:
+    client = FakeLLMClient([reply("Fly!"), final("plane")])  # plane is impractical here
+    agent, _ = make_agent(client)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is False
+    assert answer.recommended_mode is M.TRAIN
+
+
+@pytest.mark.parametrize(
+    "bad_final",
+    [
+        reply("Take the train, it's great."),
+        reply('{"recommended_mode": "train"}'),
+        reply('{"recommended_mode": "teleport", "summary": "x", "reasons": ["y"]}'),
+        final(reasons=[]),
+    ],
+    ids=["not-json", "missing-fields", "unknown-mode", "no-reasons"],
+)
+def test_bad_final_json_falls_back(bad_final: LLMResponse) -> None:
+    agent, _ = make_agent(FakeLLMClient([reply("Thinking."), bad_final]))
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is False
+    assert answer.recommended_mode is M.TRAIN
+
+
+def test_llm_error_falls_back() -> None:
+    agent, _ = make_agent(FakeLLMClient([LLMError("timeout")]))
+
+    assert agent.advise(long_trip()).used_llm is False
+
+
+def test_bike_in_rain_from_llm_is_rejected() -> None:
+    client = FakeLLMClient([reply("Cycle!"), final("bike")])
+    agent, _ = make_agent(client, FakeWeather(RAIN))
+
+    answer = agent.advise(short_trip())
+
+    assert answer.used_llm is False
+    assert answer.recommended_mode is not M.BIKE
+
+
+def test_bike_with_luggage_from_llm_is_rejected() -> None:
+    agent, _ = make_agent(FakeLLMClient([reply("Cycle!"), final("bike")]))
+
+    answer = agent.advise(short_trip(), "I have a big suitcase / luggage")
+
+    assert answer.used_llm is False
+    assert answer.recommended_mode is not M.BIKE
+
+
+def test_no_client_uses_rules() -> None:
+    agent, _ = make_agent(None)
+
+    answer = agent.advise(long_trip())
+
+    assert answer.used_llm is False
+    assert answer.model is None
+    assert answer.recommended_mode is M.TRAIN
+
+
+def test_offline_client_is_not_called() -> None:
+    client = FakeLLMClient([final()], available=False)
+    agent, _ = make_agent(client)
+
+    assert agent.advise(long_trip()).used_llm is False
+    assert client.requests == []
+
+
+def test_weather_uses_coordinates_or_geocodes_by_name() -> None:
+    agent, weather = make_agent(None)
+
+    with_coords = agent.advise(long_trip())
+    by_name = agent.advise(short_trip())
+
+    assert with_coords.weather is not None and with_coords.weather.location == "Kraków"
+    assert by_name.weather is not None and by_name.weather.location == "Work"
+    assert weather.lookups == ["Kraków", "Work"]
+
+
+# --- rule-based fallback ----------------------------------------------------------------
+
+
+def test_fallback_picks_greenest_practical_option() -> None:
+    answer = rule_based_advice(long_trip(), None, make_weather())
+
+    assert answer.recommended_mode is M.TRAIN
+    assert answer.summary.startswith("Train has the lowest CO₂")
+    assert "9.3 kg CO₂ per person" in answer.reasons[0]
+    assert any(r.startswith("Weather in Kraków") for r in answer.reasons)
+
+
+def test_fallback_skips_bike_in_rain() -> None:
+    answer = rule_based_advice(short_trip(), None, RAIN)
+
+    assert answer.recommended_mode is not M.BIKE
+    assert answer.recommended_mode is M.TRAIN
+    assert any("Bike skipped because of" in r and "rain" in r for r in answer.reasons)
+
+
+def test_fallback_keeps_bike_in_good_weather() -> None:
+    assert rule_based_advice(short_trip(), None, make_weather()).recommended_mode is M.BIKE
+
+
+def test_fallback_keeps_bike_without_weather_data() -> None:
+    assert rule_based_advice(short_trip(), None, None).recommended_mode is M.BIKE
+
+
+@pytest.mark.parametrize(
+    ("trip", "preferences", "expected"),
+    [
+        (short_trip, "I have luggage", M.TRAIN),  # bike would be greenest
+        (short_trip, "mam dużą walizkę", M.TRAIN),
+        (long_trip, "cheapest please", M.CAR_EV),  # EV shared by 2 is cheapest
+        (long_trip, "najtaniej", M.CAR_EV),
+        (long_trip, "as fast as possible", M.CAR_EV),  # cars are fastest, EV greener
+    ],
+)
+def test_fallback_respects_preferences(
+    trip: Callable[[], ComparisonResult], preferences: str, expected: TransportMode
+) -> None:
+    answer = rule_based_advice(trip(), preferences, make_weather())
+
+    assert answer.recommended_mode is expected
+    assert answer.preferences == preferences
