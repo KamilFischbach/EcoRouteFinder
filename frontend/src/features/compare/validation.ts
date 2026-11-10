@@ -6,6 +6,7 @@ import {
   validatePlace,
 } from '@/lib/validators';
 import type { ComparisonInput } from '@/types/comparison';
+import type { TripDraft } from '@/types/tripDraft';
 
 export interface CompareFormValues {
   origin: string;
@@ -31,6 +32,16 @@ export function validateCompare(values: CompareFormValues): CompareFormErrors {
     passengers: validatePassengers(values.passengers),
     distanceKm: values.distanceKm.trim() ? validateDistance(values.distanceKm) : undefined,
   });
+}
+
+/** Form values from a parsed draft. Unknown passengers keep the form's default of 1. */
+export function fromTripDraft(draft: TripDraft): CompareFormValues {
+  return {
+    origin: draft.origin ?? '',
+    destination: draft.destination ?? '',
+    passengers: String(draft.passengers ?? 1),
+    distanceKm: '',
+  };
 }
 
 export function toComparisonInput(values: CompareFormValues): ComparisonInput {

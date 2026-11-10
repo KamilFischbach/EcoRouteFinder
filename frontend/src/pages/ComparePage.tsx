@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { ApiError } from '@/api/client';
@@ -10,6 +10,8 @@ import { PageHeader } from '@/components/PageHeader';
 import { Spinner } from '@/components/Spinner';
 import { CompareForm } from '@/features/compare/CompareForm';
 import { ComparisonResults } from '@/features/compare/ComparisonResults';
+import { DescribeTrip } from '@/features/compare/DescribeTrip';
+import { EMPTY_COMPARE_FORM, fromTripDraft } from '@/features/compare/validation';
 import { RecentComparisons } from '@/features/compare/RecentComparisons';
 import { useCompareMutation, useComparisonQuery } from '@/features/compare/useCompare';
 
@@ -33,6 +35,8 @@ export function ComparePage() {
   const compare = useCompareMutation();
   const saved = useComparisonQuery(id);
   const { reset } = compare;
+  // Bumping the key remounts the form with values parsed from "Describe your trip".
+  const [prefill, setPrefill] = useState({ key: 0, values: EMPTY_COMPARE_FORM });
 
   // Opening another saved comparison clears a previous search error or result.
   useEffect(() => {
@@ -86,8 +90,15 @@ export function ComparePage() {
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
         <Card>
           <CardHeader title="Route" description="Where from, where to, and how many of you." />
-          <div className="px-5 py-5 sm:px-6">
+          <div className="space-y-5 px-5 py-5 sm:px-6">
+            <DescribeTrip
+              onDraft={(draft) =>
+                setPrefill((current) => ({ key: current.key + 1, values: fromTripDraft(draft) }))
+              }
+            />
             <CompareForm
+              key={prefill.key}
+              initialValues={prefill.values}
               isSubmitting={compare.isPending}
               onSubmit={(input) =>
                 compare.mutate(input, {

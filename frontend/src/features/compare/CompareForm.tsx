@@ -15,12 +15,18 @@ import {
 } from './validation';
 
 interface CompareFormProps {
+  /** Pre-fill (e.g. from "Describe your trip"). Change the component `key` to apply new values. */
+  initialValues?: CompareFormValues;
   isSubmitting?: boolean;
   onSubmit: (input: ComparisonInput) => void;
 }
 
-export function CompareForm({ isSubmitting = false, onSubmit }: CompareFormProps) {
-  const [values, setValues] = useState(EMPTY_COMPARE_FORM);
+export function CompareForm({
+  initialValues = EMPTY_COMPARE_FORM,
+  isSubmitting = false,
+  onSubmit,
+}: CompareFormProps) {
+  const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState<CompareFormErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);

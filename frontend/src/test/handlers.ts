@@ -142,6 +142,17 @@ function toSummary(c: Comparison): ComparisonSummary {
 }
 
 export const handlers = [
+  http.post(`${API_URL}/trip-drafts`, () =>
+    HttpResponse.json({
+      origin: 'Gdynia',
+      destination: 'Toruń',
+      passengers: 2,
+      mode: 'train',
+      missing_fields: [],
+      parsed_by: 'llm',
+    }),
+  ),
+
   http.get(`${API_URL}/health`, () =>
     HttpResponse.json({ status: 'ok', ai_available: true, ai_model: 'qwen2.5:7b' }),
   ),

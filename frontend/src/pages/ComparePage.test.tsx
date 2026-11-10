@@ -237,3 +237,77 @@ describe('ComparePage history', () => {
     expect(getComparisonDb().map((c) => c.id)).toEqual([1]);
   });
 });
+
+describe('ComparePage describe your trip', () => {
+  async function describeTrip(user: UserEvent, text: string) {
+    await user.type(screen.getByLabelText('Describe your trip'), text);
+    await user.click(screen.getByRole('button', { name: 'Fill in' }));
+  }
+
+  it('fills the form from the AI draft without submitting it', async () => {
+    let compared = false;
+    server.use(
+      http.post(`${API_URL}/comparisons`, () => {
+        compared = true;
+        return undefined;
+      }),
+    );
+    const { user } = renderPage();
+
+    await describeTrip(user, 'jutro jadę z Gdyni do Torunia z żoną pociągiem');
+
+    expect(await screen.findByText('Filled by AI')).toBeInTheDocument();
+    expect(screen.getByLabelText('From')).toHaveValue('Gdynia');
+    expect(screen.getByLabelText('To')).toHaveValue('Toruń');
+    expect(screen.getByLabelText('Passengers')).toHaveValue(2);
+    expect(screen.getByText('You mentioned: Train.')).toBeInTheDocument();
+    expect(screen.getByText('Where are you going?')).toBeInTheDocument();
+    expect(compared).toBe(false);
+  });
+
+  it('shows the rules badge and missing fields', async () => {
+    server.use(
+      http.post(`${API_URL}/trip-drafts`, () =>
+        HttpResponse.json({
+          origin: null,
+          destination: 'Zakopane',
+          passengers: null,
+          mode: null,
+          missing_fields: ['origin', 'passengers'],
+          parsed_by: 'rules',
+        }),
+      ),
+    );
+    const { user } = renderPage();
+
+    await describeTrip(user, 'weekend w Zakopanem');
+
+    expect(await screen.findByText('Filled by rules')).toBeInTheDocument();
+    expect(screen.getByText(/Not found in your text: From, Passengers/)).toBeInTheDocument();
+    expect(screen.getByLabelText('From')).toHaveValue('');
+    expect(screen.getByLabelText('To')).toHaveValue('Zakopane');
+    expect(screen.getByLabelText('Passengers')).toHaveValue(1);
+  });
+
+  it('shows an error when the draft request fails', async () => {
+    server.use(
+      http.post(`${API_URL}/trip-drafts`, () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL_ERROR', message: 'boom', details: null } },
+          { status: 500 },
+        ),
+      ),
+    );
+    const { user } = renderPage();
+
+    await describeTrip(user, 'from A to B');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong');
+  });
+
+  it('disables Fill in for empty text', () => {
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'Fill in' })).toBeDisabled();
+  });
+});
