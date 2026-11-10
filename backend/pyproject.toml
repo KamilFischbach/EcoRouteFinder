@@ -46,3 +46,7 @@ warn_required_dynamic_aliases = true
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra"
+filterwarnings = [
+    # Starlette suggests httpx2 for TestClient; httpx still works and is what we pin.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
