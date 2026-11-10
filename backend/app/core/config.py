@@ -16,9 +16,13 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     database_url: str = "sqlite:///./ecoroute.db"
     cors_origins: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    # Local LLM via Ollama. Without a running Ollama the app uses rule-based fallbacks.
+    ai_enabled: bool = True
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
-    ai_enabled: bool = False
+    # A 7B model on CPU can take a while per call.
+    ollama_timeout_s: float = 90.0
+    ollama_temperature: float = 0.2
     # Routing: OpenStreetMap Nominatim (geocoding) + OSRM (driving routes).
     geocoder_url: str = "https://nominatim.openstreetmap.org"
     routing_url: str = "https://router.project-osrm.org"

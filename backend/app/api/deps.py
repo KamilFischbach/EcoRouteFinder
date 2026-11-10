@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel import Session
 
+from app.ai.llm_client import LLMClient, build_llm_client
 from app.core.config import get_settings
 from app.db import get_session
 from app.repositories.comparison_repository import ComparisonRepository
@@ -38,3 +39,12 @@ def get_comparison_service(
 
 
 ComparisonServiceDep = Annotated[ComparisonService, Depends(get_comparison_service)]
+
+
+@lru_cache
+def get_llm_client() -> LLMClient | None:
+    """One client per process, so the availability cache is shared. None when AI is disabled."""
+    return build_llm_client(get_settings())
+
+
+LLMClientDep = Annotated[LLMClient | None, Depends(get_llm_client)]

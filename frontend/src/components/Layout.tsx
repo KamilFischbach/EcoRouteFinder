@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 
+import { AiStatusBadge } from '@/features/ai/AiStatusBadge';
 import { cn } from '@/lib/cn';
 
 const NAV_ITEMS = [
@@ -31,12 +32,15 @@ export function Layout() {
     <div className="flex min-h-screen flex-col bg-linear-to-b from-emerald-50/80 via-stone-50 to-stone-50">
       <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-white/75 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <NavLink to="/" className="flex items-center gap-2 font-semibold text-stone-900">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
-              <LeafIcon className="size-4.5" />
-            </span>
-            <span className="hidden sm:inline">EcoRoute</span>
-          </NavLink>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <NavLink to="/" className="flex items-center gap-2 font-semibold text-stone-900">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+                <LeafIcon className="size-4.5" />
+              </span>
+              <span className="hidden sm:inline">EcoRoute</span>
+            </NavLink>
+            <AiStatusBadge />
+          </div>
           <nav aria-label="Main navigation">
             <ul className="flex items-center gap-1 rounded-xl bg-stone-100/80 p-1">
               {NAV_ITEMS.map((item) => (

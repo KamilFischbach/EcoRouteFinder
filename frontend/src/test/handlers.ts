@@ -142,6 +142,10 @@ function toSummary(c: Comparison): ComparisonSummary {
 }
 
 export const handlers = [
+  http.get(`${API_URL}/health`, () =>
+    HttpResponse.json({ status: 'ok', ai_available: true, ai_model: 'qwen2.5:7b' }),
+  ),
+
   http.post(`${API_URL}/comparisons`, async ({ request }) => {
     const input = (await request.json()) as ComparisonInput;
     const id = Math.max(0, ...comparisons.map((c) => c.id)) + 1;

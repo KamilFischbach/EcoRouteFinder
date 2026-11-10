@@ -1,6 +1,7 @@
 """Shared fixtures: in-memory SQLite per test, and a TestClient wired to it."""
 
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -9,10 +10,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
-from app.api.deps import get_route_provider
+from app.api.deps import get_llm_client, get_route_provider
 from app.db import get_session, init_db
 from app.main import create_app
-from tests.fakes import FakeRouteProvider
+from tests.fakes import FakeLLMClient, FakeRouteProvider
 
 TripPayload = dict[str, Any]
 
@@ -39,12 +40,27 @@ def route_provider_fixture() -> FakeRouteProvider:
     return FakeRouteProvider()
 
 
+@dataclass
+class LLMSlot:
+    """Which LLM client the app sees. None = AI disabled (rule-based fallback)."""
+
+    client: FakeLLMClient | None = None
+
+
+@pytest.fixture(name="llm")
+def llm_fixture() -> LLMSlot:
+    return LLMSlot()
+
+
 @pytest.fixture(name="client")
-def client_fixture(session: Session, route_provider: FakeRouteProvider) -> Iterator[TestClient]:
+def client_fixture(
+    session: Session, route_provider: FakeRouteProvider, llm: LLMSlot
+) -> Iterator[TestClient]:
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
-    # Never hit Nominatim/OSRM from tests.
+    # Never hit Nominatim/OSRM or Ollama from tests.
     app.dependency_overrides[get_route_provider] = lambda: route_provider
+    app.dependency_overrides[get_llm_client] = lambda: llm.client
     # Not used as a context manager on purpose: that would run the lifespan,
     # which initialises the on-disk database from settings.
     yield TestClient(app)
