@@ -1,5 +1,7 @@
 """Persistence for `Trip`. No business rules here, only queries and writes."""
 
+from datetime import date
+
 from sqlmodel import Session, col, select
 
 from app.models.trip import TransportMode, Trip
@@ -15,6 +17,13 @@ class TripRepository:
         )
         if mode is not None:
             statement = statement.where(col(Trip.mode) == mode)
+        return list(self._session.exec(statement).all())
+
+    def list_travelled_since(self, start: date | None) -> list[Trip]:
+        """Trips travelled on or after `start` (all trips when None), in one query."""
+        statement = select(Trip).order_by(col(Trip.travelled_on), col(Trip.id))
+        if start is not None:
+            statement = statement.where(col(Trip.travelled_on) >= start)
         return list(self._session.exec(statement).all())
 
     def get(self, trip_id: int) -> Trip | None:

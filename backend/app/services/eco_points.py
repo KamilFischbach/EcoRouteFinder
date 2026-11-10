@@ -1,0 +1,59 @@
+"""Eco-points and levels: a small reward for choosing low-carbon transport.
+
+Rules (keep README "Dashboard" in sync):
+- A trip earns `POINTS_PER_KG_SAVED` points for every kg of CO2 it saved per person compared
+  with the same group going by petrol car, rounded to a whole number.
+- A trip that saved nothing or emitted more than the petrol car (e.g. a flight) earns 0.
+  There are no penalties: points only grow.
+- Levels are fixed thresholds of total points (`LEVELS`). The demo data (`python -m app.seed`)
+  lands in the middle level.
+
+Pure functions, no I/O, so they can back an MCP tool later.
+"""
+
+from dataclasses import dataclass
+
+POINTS_PER_KG_SAVED = 10
+
+
+@dataclass(frozen=True)
+class Level:
+    name: str
+    min_points: int
+
+
+LEVELS: tuple[Level, ...] = (
+    Level("Seedling", 0),
+    Level("Sprout", 100),
+    Level("Sapling", 500),
+    Level("Tree", 1500),
+    Level("Forest", 4000),
+)
+
+
+@dataclass(frozen=True)
+class LevelProgress:
+    name: str
+    points: int
+    next_level_name: str | None
+    """None on the last level."""
+    next_level_at: int | None
+    progress: float
+    """Share of the way from this level's threshold to the next one, 0-1 (1 on the last level)."""
+
+
+def trip_points(co2_saved_kg: float) -> int:
+    """Points for one trip. Never negative."""
+    return round(max(co2_saved_kg, 0.0) * POINTS_PER_KG_SAVED)
+
+
+def level_for(points: int) -> LevelProgress:
+    """The level reached with `points`; a threshold counts as reached when hit exactly."""
+    index = max(i for i, level in enumerate(LEVELS) if points >= level.min_points)
+    current = LEVELS[index]
+    if index == len(LEVELS) - 1:
+        return LevelProgress(current.name, points, None, None, 1.0)
+    upcoming = LEVELS[index + 1]
+    span = upcoming.min_points - current.min_points
+    progress = (points - current.min_points) / span
+    return LevelProgress(current.name, points, upcoming.name, upcoming.min_points, progress)

@@ -16,6 +16,7 @@ from app.repositories.trip_repository import TripRepository
 from app.services.advice_service import AdviceService
 from app.services.comparison_service import ComparisonService
 from app.services.routing import RouteProvider, build_route_provider
+from app.services.stats import StatsService
 from app.services.trip_service import TripService
 from app.services.weather import WeatherProvider, build_weather_service
 
@@ -27,6 +28,13 @@ def get_trip_service(session: SessionDep) -> TripService:
 
 
 TripServiceDep = Annotated[TripService, Depends(get_trip_service)]
+
+
+def get_stats_service(session: SessionDep) -> StatsService:
+    return StatsService(TripRepository(session))
+
+
+StatsServiceDep = Annotated[StatsService, Depends(get_stats_service)]
 
 
 @lru_cache
