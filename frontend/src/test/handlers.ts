@@ -8,6 +8,7 @@ import type {
   ComparisonOption,
   ComparisonSummary,
 } from '@/types/comparison';
+import type { Stats, StatsRange } from '@/types/stats';
 import type { TransportMode, Trip, TripInput } from '@/types/trip';
 
 export const tripFixtures: Trip[] = [
@@ -38,6 +39,66 @@ export const tripFixtures: Trip[] = [
     updated_at: '2026-11-09T08:30:00Z',
   },
 ];
+
+/** A 90-day dashboard with savings and a previous period to compare with. */
+export const statsFixture: Stats = {
+  range: '90d',
+  granularity: 'week',
+  from: '2026-08-13',
+  to: '2026-11-10',
+  totals: {
+    trips: 23,
+    distance_km: 4210,
+    co2_kg: 269.99,
+    co2_saved_kg: 152.2,
+    km_not_driven: 3150,
+    eco_points: 2366,
+  },
+  level: {
+    name: 'Sapling',
+    points: 2366,
+    next_level_name: 'Tree',
+    next_level_at: 4000,
+    points_to_next: 1634,
+    progress: 0.346,
+  },
+  timeline: [
+    { period_start: '2026-10-26', co2_kg: 12.5, co2_saved_kg: 20.1, trips: 2 },
+    { period_start: '2026-11-02', co2_kg: 0, co2_saved_kg: 0, trips: 0 },
+    { period_start: '2026-11-09', co2_kg: 30.2, co2_saved_kg: -4.5, trips: 1 },
+  ],
+  by_mode: [
+    { mode: 'car_petrol', trips: 4, co2_kg: 120.4, distance_km: 900 },
+    { mode: 'train', trips: 15, co2_kg: 90.2, distance_km: 2900 },
+  ],
+  previous_period: {
+    from: '2026-05-15',
+    to: '2026-08-12',
+    totals: {
+      trips: 7,
+      distance_km: 1500,
+      co2_kg: 300,
+      co2_saved_kg: 114.2,
+      km_not_driven: 1200,
+      eco_points: 1200,
+    },
+    co2_change_kg: -30.01,
+    saved_change_kg: 38,
+    co2_change_pct: -10,
+    saved_change_pct: 33.3,
+  },
+  best_trip: {
+    id: 7,
+    origin: 'Warszawa',
+    destination: 'Gdańsk',
+    mode: 'train',
+    travelled_on: '2026-10-28',
+    distance_km: 340,
+    passengers: 2,
+    co2_kg: 10.51,
+    co2_saved_kg: 17.3,
+  },
+};
 
 // In-memory "database" shared by the handlers; reset after every test in setup.ts.
 let trips: Trip[] = [];
@@ -210,6 +271,11 @@ export const handlers = [
     if (!comparisons.some((c) => c.id === Number(params.id))) return notFound(params.id);
     comparisons = comparisons.filter((c) => c.id !== Number(params.id));
     return new HttpResponse(null, { status: 204 });
+  }),
+
+  http.get(`${API_URL}/stats`, ({ request }) => {
+    const range = (new URL(request.url).searchParams.get('range') ?? '90d') as StatsRange;
+    return HttpResponse.json({ ...statsFixture, range });
   }),
 
   http.get(`${API_URL}/trips`, ({ request }) => {

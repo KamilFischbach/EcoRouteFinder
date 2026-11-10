@@ -3,7 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 
 import { API_URL } from '@/api/client';
-import { resetTripDb } from '@/test/handlers';
+import { statsKeys } from '@/features/dashboard/useStats';
+import { resetTripDb, statsFixture } from '@/test/handlers';
 import { server } from '@/test/server';
 import { renderWithProviders } from '@/test/utils';
 
@@ -85,6 +86,20 @@ describe('TripsPage list', () => {
     await waitFor(() => expect(screen.queryByText('Warszawa → Gdańsk')).not.toBeInTheDocument());
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(getRows()).toHaveLength(1);
+  });
+
+  it('marks the dashboard statistics as stale after a trip is deleted', async () => {
+    const { user, queryClient } = renderWithProviders(<TripsPage />);
+    queryClient.setQueryData(statsKeys.detail('90d'), statsFixture);
+    await screen.findByText('Warszawa → Gdańsk');
+
+    await user.click(screen.getByRole('button', { name: 'Delete trip Warszawa → Gdańsk' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this trip?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() =>
+      expect(queryClient.getQueryState(statsKeys.detail('90d'))?.isInvalidated).toBe(true),
+    );
   });
 
   it('keeps the trip when deletion is cancelled', async () => {

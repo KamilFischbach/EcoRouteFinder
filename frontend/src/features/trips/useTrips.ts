@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { tripsApi } from '@/api/trips';
+import { statsKeys } from '@/features/dashboard/useStats';
 import type { TransportMode, TripInput } from '@/types/trip';
 
 export const tripKeys = {
@@ -15,9 +16,14 @@ export function useTripsQuery(mode?: TransportMode) {
   });
 }
 
+/** Trips feed the dashboard statistics, so both are refreshed after a change. */
 function useInvalidateTrips() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: tripKeys.all });
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: tripKeys.all }),
+      queryClient.invalidateQueries({ queryKey: statsKeys.all }),
+    ]);
 }
 
 export function useCreateTrip() {

@@ -3,13 +3,15 @@ import { Route, Routes } from 'react-router-dom';
 
 import { Layout } from '@/components/Layout';
 import { Spinner } from '@/components/Spinner';
-import { DashboardPage } from '@/pages/DashboardPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { TripsPage } from '@/pages/TripsPage';
 
-// The compare page pulls in Recharts; load it only when visited.
+// The compare and dashboard pages pull in Recharts; load them only when visited.
 const ComparePage = lazy(() =>
   import('@/pages/ComparePage').then((module) => ({ default: module.ComparePage })),
+);
+const DashboardPage = lazy(() =>
+  import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
 );
 
 function PageFallback() {
@@ -36,7 +38,14 @@ export function App() {
             }
           />
         ))}
-        <Route path="dashboard" element={<DashboardPage />} />
+        <Route
+          path="dashboard"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <DashboardPage />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
