@@ -22,5 +22,7 @@ class TripDraftRead(BaseModel):
     destination: str | None
     passengers: int | None
     mode: TransportMode | None
+    preferences: str | None
+    """Short summary of travel needs for EcoAdvisor (luggage, comfort, budget...), or null."""
     missing_fields: list[Literal["origin", "destination", "passengers"]]
     parsed_by: Literal["llm", "rules"]

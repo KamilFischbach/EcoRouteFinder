@@ -249,6 +249,27 @@ def test_bike_with_luggage_from_llm_is_rejected() -> None:
     assert answer.recommended_mode is not M.BIKE
 
 
+@pytest.mark.parametrize("preferences", ["ski equipment", "comfort matters to us"])
+def test_coach_for_bulky_or_comfort_trip_from_llm_is_rejected(preferences: str) -> None:
+    agent, _ = make_agent(FakeLLMClient([reply("Coach!"), final("coach")]))
+
+    answer = agent.advise(long_trip(), preferences)
+
+    assert answer.used_llm is False
+    assert answer.recommended_mode is M.TRAIN
+
+
+def test_train_for_ski_trip_from_llm_is_accepted() -> None:
+    agent, _ = make_agent(FakeLLMClient([reply("Train."), final("train")]))
+
+    answer = agent.advise(long_trip(), "ski equipment, comfort matters")
+
+    assert answer.used_llm is True
+    assert "Coach skipped: on a trip over 200 km the train is easier with bulky equipment." in (
+        answer.reasons
+    )
+
+
 def test_no_client_uses_rules() -> None:
     agent, _ = make_agent(None)
 
@@ -331,3 +352,56 @@ def test_fallback_respects_preferences(
 
     assert answer.recommended_mode is expected
     assert answer.preferences == preferences
+
+
+@pytest.mark.parametrize(
+    ("preferences", "bike_note", "needs"),
+    [
+        ("ski equipment", "Bike skipped because you have bulky equipment.", "bulky equipment"),
+        ("jedziemy na narty, mamy sprzęt", "Bike skipped because you have bulky equipment.", None),
+        ("comfort matters to us", "Bike skipped because comfort matters to you.", None),
+        ("zależy nam na wygodzie", "Bike skipped because comfort matters to you.", None),
+    ],
+)
+def test_fallback_skips_bike_for_equipment_or_comfort(
+    preferences: str, bike_note: str, needs: str | None
+) -> None:
+    answer = rule_based_advice(short_trip(), preferences, make_weather())
+
+    assert answer.recommended_mode is M.TRAIN
+    assert bike_note in answer.reasons
+    assert not any(r.startswith("Coach skipped") for r in answer.reasons)  # only 12 km
+    if needs:
+        assert answer.summary.startswith(f"Train is the lowest-CO₂ option that suits {needs}:")
+
+
+@pytest.mark.parametrize(
+    ("preferences", "expected", "coach_note"),
+    [
+        # Coach (53 PLN) is cheaper than the train (91 PLN) but ranked behind it on 293 km.
+        ("ski equipment, cheap", M.CAR_EV, "the train is easier with bulky equipment"),
+        ("comfort matters", M.TRAIN, "the train is more comfortable"),
+        ("ski equipment, comfort matters", M.TRAIN, "the train is easier with bulky equipment"),
+    ],
+)
+def test_fallback_ranks_coach_behind_train_on_long_trips(
+    preferences: str, expected: TransportMode, coach_note: str
+) -> None:
+    answer = rule_based_advice(long_trip(), preferences, make_weather())
+
+    assert answer.recommended_mode is expected
+    assert f"Coach skipped: on a trip over 200 km {coach_note}." in answer.reasons
+
+
+def test_fallback_summary_names_both_needs() -> None:
+    answer = rule_based_advice(long_trip(), "ski equipment, comfort matters", make_weather())
+
+    assert answer.summary.startswith(
+        "Train is the lowest-CO₂ option that suits bulky equipment and a comfortable trip:"
+    )
+
+
+def test_fallback_keeps_coach_without_comfort_or_equipment() -> None:
+    answer = rule_based_advice(long_trip(), "I am asking for the usual", make_weather())
+
+    assert not any(r.startswith("Coach skipped") for r in answer.reasons)

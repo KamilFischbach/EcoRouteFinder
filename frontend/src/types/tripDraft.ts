@@ -8,6 +8,8 @@ export interface TripDraft {
   destination: string | null;
   passengers: number | null;
   mode: TransportMode | null;
+  /** Short English summary of travel needs (luggage, comfort, budget...) for EcoAdvisor. */
+  preferences: string | null;
   missing_fields: DraftField[];
   parsed_by: 'llm' | 'rules';
 }

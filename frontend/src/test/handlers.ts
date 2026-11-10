@@ -168,6 +168,7 @@ export const handlers = [
       destination: 'Toruń',
       passengers: 2,
       mode: 'train',
+      preferences: null,
       missing_fields: [],
       parsed_by: 'llm',
     }),

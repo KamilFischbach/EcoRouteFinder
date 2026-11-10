@@ -1,14 +1,17 @@
 """Free text -> trip draft ("jutro jadę z Gdyni do Torunia z żoną").
 
-1. If an LLM is available: ask it with `TRIP_PARSER_SYSTEM_V1` and `ParsedTrip`'s JSON schema as
+1. If an LLM is available: ask it with `TRIP_PARSER_SYSTEM_V2` and `ParsedTrip`'s JSON schema as
    structured output, validate the reply with Pydantic, and check the places really occur in the
-   text (a cheap guard against invented names).
+   text (a cheap guard against invented names). `preferences` is an English summary, so it cannot
+   be matched word for word; instead any number in it must occur in the text, otherwise the
+   rule-based preferences replace it.
 2. On any failure (no client, offline, timeout, bad JSON, schema violation, invented place):
    fall back to `parse_trip_with_rules`.
 The parser never returns distances or emissions; those come from services.
 """
 
 import logging
+import re
 import unicodedata
 from dataclasses import dataclass
 from typing import Annotated, Literal
@@ -17,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 
 from app.ai import trip_rules
 from app.ai.llm_client import LLMClient, LLMError, system_message, user_message
-from app.ai.prompts import TRIP_PARSER_SYSTEM_V1
+from app.ai.prompts import TRIP_PARSER_SYSTEM_V2
 from app.models.trip import TransportMode
 
 logger = logging.getLogger(__name__)
@@ -28,7 +31,12 @@ REQUIRED_FIELDS = ("origin", "destination", "passengers")
 # Polish declension changes word endings ("Gdynia" -> "z Gdyni"); compare only the stem.
 STEM_LENGTH = 3
 
+_NUMBER_RE = re.compile(r"\d+")
+
 PlaceName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+PreferencesText = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=trip_rules.MAX_PREFERENCES_LENGTH)
+]
 
 
 class ParsedTrip(BaseModel):
@@ -40,6 +48,8 @@ class ParsedTrip(BaseModel):
     destination: PlaceName | None
     passengers: Annotated[int, Field(ge=1, le=9)] | None
     mode: TransportMode | None
+    preferences: PreferencesText | None
+    """Short English summary of travel needs (luggage, equipment, comfort, budget, speed...)."""
 
 
 @dataclass(frozen=True)
@@ -48,6 +58,7 @@ class TripDraft:
     destination: str | None
     passengers: int | None
     mode: TransportMode | None
+    preferences: str | None
     missing_fields: list[str]
     parsed_by: ParsedBy
 
@@ -70,6 +81,7 @@ def _to_draft(parsed: ParsedTrip, parsed_by: ParsedBy) -> TripDraft:
         destination=parsed.destination,
         passengers=parsed.passengers,
         mode=parsed.mode,
+        preferences=parsed.preferences or None,
         missing_fields=missing,
         parsed_by=parsed_by,
     )
@@ -82,20 +94,33 @@ def parse_trip_with_rules(text: str) -> TripDraft:
         destination=destination,
         passengers=trip_rules.find_passengers(text),
         mode=trip_rules.find_mode(text),
+        preferences=trip_rules.find_preferences(text),
     )
     return _to_draft(parsed, "rules")
 
 
 def _parse_with_llm(text: str, client: LLMClient) -> ParsedTrip:
     response = client.chat(
-        [system_message(TRIP_PARSER_SYSTEM_V1), user_message(f"Message: {text}")],
+        [system_message(TRIP_PARSER_SYSTEM_V2), user_message(f"Message: {text}")],
         response_schema=ParsedTrip.model_json_schema(),
     )
     parsed = ParsedTrip.model_validate_json(response.content)
     for place in (parsed.origin, parsed.destination):
         if place is not None and not _occurs_in(place, text):
             raise ValueError(f"LLM returned a place that is not in the text: {place!r}")
-    return parsed
+    return _with_grounded_preferences(parsed, text)
+
+
+def _with_grounded_preferences(parsed: ParsedTrip, text: str) -> ParsedTrip:
+    """Keep the LLM's preferences unless they contain a number the user never wrote."""
+    preferences = parsed.preferences
+    if not preferences:
+        return parsed.model_copy(update={"preferences": None})
+    known = set(_NUMBER_RE.findall(text))
+    if all(number in known for number in _NUMBER_RE.findall(preferences)):
+        return parsed
+    logger.info("LLM preferences mention unknown numbers, using rules: %r", preferences)
+    return parsed.model_copy(update={"preferences": trip_rules.find_preferences(text)})
 
 
 def parse_trip(text: str, client: LLMClient | None) -> TripDraft:

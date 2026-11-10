@@ -7,7 +7,8 @@ LLM path:
    the result back as a `tool` message.
 3. A separate final call with `FinalAdvice`'s JSON schema as structured output (no tools). The
    model returns only the recommended mode and a short summary.
-4. Grounding check: the recommended mode must be a practical option of this comparison.
+4. Grounding check: the recommended mode must be a practical option of this comparison that
+   the luggage, equipment, comfort and weather rules (`suitable_options`) did not skip.
 5. Reasons (all numbers and cheapest/fastest/lowest-CO2 labels) are built from the data by
    `advice_facts.build_reasons`. The summary is checked against the data: a false superlative
    or comparative, or a number that isn't in the data, rejects the answer.
@@ -26,7 +27,6 @@ from pydantic import BaseModel, ConfigDict, StringConstraints, ValidationError
 from app.ai.advice_facts import (
     CHEAP_WORDS,
     FAST_WORDS,
-    LUGGAGE_WORDS,
     MODE_LABELS,
     SummaryMismatchError,
     build_reasons,
@@ -35,6 +35,7 @@ from app.ai.advice_facts import (
     kg,
     mentions,
     savings,
+    special_needs,
     suitable_options,
 )
 from app.ai.llm_client import (
@@ -48,7 +49,7 @@ from app.ai.prompts import ADVISOR_FINAL_V2, ADVISOR_SYSTEM_V3
 from app.ai.tools import ToolRegistry, comparison_to_tool_data
 from app.models.trip import TransportMode
 from app.services.comparison_models import ComparisonResult
-from app.services.weather import WeatherInfo, WeatherProvider, bad_for_cycling
+from app.services.weather import WeatherInfo, WeatherProvider
 
 logger = logging.getLogger(__name__)
 
@@ -113,9 +114,14 @@ def rule_based_advice(
         )
     else:
         pick = min(candidates, key=lambda o: (o.co2_kg, o.duration_min))
+        needs = special_needs(preferences)
+        claim = (
+            f"is the lowest-CO₂ option that suits {needs}"
+            if needs
+            else "has the lowest CO₂ of the practical options"
+        )
         summary = (
-            f"{MODE_LABELS[pick.mode]} has the lowest CO₂ of the practical options: "
-            f"{kg(pick.co2_kg)} per person, {savings(pick)}."
+            f"{MODE_LABELS[pick.mode]} {claim}: {kg(pick.co2_kg)} per person, {savings(pick)}."
         )
 
     return AdvisorAnswer(
@@ -240,8 +246,6 @@ def check_grounding(
     practical = {o.mode for o in comparison.options if o.practical}
     if mode not in practical:
         raise AdvisorError(f"Recommended {mode} is not a practical option")
-    if mode is TransportMode.BIKE:
-        if mentions(preferences, LUGGAGE_WORDS):
-            raise AdvisorError("Recommended the bike although the user has luggage")
-        if weather is not None and bad_for_cycling(weather):
-            raise AdvisorError("Recommended the bike in bad weather")
+    suitable = suitable_options(comparison, preferences, weather)
+    if mode not in {o.mode for o in suitable.options}:
+        raise AdvisorError(f"Recommended {mode} although: {' '.join(suitable.notes)}")

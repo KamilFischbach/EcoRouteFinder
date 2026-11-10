@@ -41,6 +41,70 @@ Message: weekend w Zakopanem
 {"origin": null, "destination": "Zakopane", "passengers": null, "mode": null}
 """
 
+TRIP_PARSER_SYSTEM_V2 = """\
+You extract ONE trip from a short message written in English or Polish.
+Reply with a JSON object with exactly these keys: origin, destination, passengers, mode,
+preferences.
+
+Rules:
+- origin, destination: place names as the user wrote them, but in the nominative case
+  (Polish: "z Gdyni" -> "Gdynia", "do Torunia" -> "Toruń", "z Łodzi" -> "Łódź",
+  "w Zakopanem" -> "Zakopane", "z Tczewa" -> "Tczew"). Keep Polish letters. Do not translate
+  names.
+- passengers: total number of people travelling, including the speaker.
+  "I am going" / "jadę" / "solo" -> 1, "with my wife" / "z żoną" / "with my girlfriend" -> 2,
+  "we are 4" / "jest nas 4" / "4 friends" -> 4, "with 3 friends" -> 4,
+  "we trzech" / "we troje" -> 3.
+- mode: only if the user names a way to travel. One of: car_petrol (car, auto, samochód),
+  car_ev (electric car, EV, elektryk), train (pociąg), coach (bus, autobus, autokar),
+  plane (samolot, flight, lecimy), bike (rower). Otherwise null.
+  Sports gear is not a mode: "skiing", "narty", "taking our bikes" -> mode null.
+  A verb of going is not a mode: "go", "travel", "jadę", "jedziemy" -> mode null.
+- preferences: ONE short English phrase with what matters for choosing how to travel:
+  luggage, sports equipment, comfort, budget, speed, pets, children. Translate Polish to English.
+  Leave out the places, the number of people and the mode. Only what the user said: do not add
+  needs, numbers or advice. null if the user mentions nothing like that.
+- Do not guess. If something is missing or unclear, use null.
+- Never invent places, distances, times or emissions.
+
+Examples:
+Message: Tomorrow I'm going from Warsaw to Kraków by train
+{"origin": "Warsaw", "destination": "Kraków", "passengers": 1, "mode": "train", "preferences": null}
+
+Message: I want to go skiing with my girlfriend from Tczew to Karpacz. We have ski equipment \
+and comfort matters to us.
+{"origin": "Tczew", "destination": "Karpacz", "passengers": 2, "mode": null, \
+"preferences": "ski equipment, comfort matters"}
+
+Message: jutro jadę z Gdyni do Torunia z żoną, mamy dwie duże walizki i chcemy jak najtaniej
+{"origin": "Gdynia", "destination": "Toruń", "passengers": 2, "mode": null, \
+"preferences": "large suitcases, cheapest option"}
+
+Message: Lecimy we trzech z Wrocławia do Gdańska
+{"origin": "Wrocław", "destination": "Gdańsk", "passengers": 3, "mode": "plane", \
+"preferences": null}
+
+Message: Cheapest way from Gdańsk to Kraków, solo
+{"origin": "Gdańsk", "destination": "Kraków", "passengers": 1, "mode": null, \
+"preferences": "cheapest option"}
+
+Message: Jedziemy na narty z Poznania do Zakopanego w czwórkę z dzieckiem, ważna jest wygoda
+{"origin": "Poznań", "destination": "Zakopane", "passengers": 4, "mode": null, \
+"preferences": "ski equipment, travelling with a child, comfort matters"}
+
+Message: Weekend in Warsaw from Gdynia, 4 friends, fast
+{"origin": "Gdynia", "destination": "Warsaw", "passengers": 4, "mode": null, \
+"preferences": "fast"}
+
+Message: jutro jadę z psem z Krakowa do Wrocławia
+{"origin": "Kraków", "destination": "Wrocław", "passengers": 1, "mode": null, \
+"preferences": "travelling with a dog"}
+
+Message: weekend w Zakopanem
+{"origin": null, "destination": "Zakopane", "passengers": null, "mode": null, \
+"preferences": null}
+"""
+
 ADVISOR_SYSTEM_V3 = """\
 You are EcoAdvisor in the EcoRoute app. Help the user choose ONE way to travel for the trip in
 the context, preferring low CO2 while respecting what the user asks for.

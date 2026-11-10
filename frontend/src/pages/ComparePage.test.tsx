@@ -279,6 +279,7 @@ describe('ComparePage describe your trip', () => {
           destination: 'Zakopane',
           passengers: null,
           mode: null,
+          preferences: null,
           missing_fields: ['origin', 'passengers'],
           parsed_by: 'rules',
         }),

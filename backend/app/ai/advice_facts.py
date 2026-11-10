@@ -36,6 +36,15 @@ MODE_LABELS: dict[TransportMode, str] = {
 CHEAP_WORDS = ("cheap", "budget", "low cost", "tani", "tanio", "najtan")
 FAST_WORDS = ("fast", "quick", "hurry", "asap", "szybk", "najszyb")
 LUGGAGE_WORDS = ("luggage", "suitcase", "bags", "baggage", "bagaż", "walizk")
+COMFORT_WORDS = ("comfort", "comfy", "relax", "wygod", "komfort")
+# Things that don't fit on a bike and are awkward in a coach's hold.
+BULKY_WORDS = (
+    "ski", "snowboard", "equipment", "gear", "bulky", "large suitcase", "big suitcase",
+    "with my bike", "with a bike", "with our bikes", "with bikes",
+    "nart", "narciar", "sprzęt", "duża walizk", "dużą walizk", "duże walizk", "z rower",
+)  # fmt: skip
+# From this road distance on, a coach is ranked behind the train for comfort or bulky equipment.
+LONG_TRIP_KM = 200.0
 
 
 class SummaryMismatchError(Exception):
@@ -62,8 +71,20 @@ def savings(option: ComparedOption) -> str:
 
 
 def mentions(text: str | None, words: tuple[str, ...]) -> bool:
-    lowered = (text or "").lower()
-    return any(word in lowered for word in words)
+    """True when a word of `text` starts with one of `words` ("ski" matches "skiing", not
+    "asking")."""
+    pattern = r"\b(?:" + "|".join(re.escape(word) for word in words) + ")"
+    return re.search(pattern, (text or "").lower()) is not None
+
+
+def special_needs(preferences: str | None) -> str | None:
+    """What the trip has to suit besides CO₂, e.g. "bulky equipment and a comfortable trip"."""
+    needs = []
+    if mentions(preferences, BULKY_WORDS):
+        needs.append("bulky equipment")
+    if mentions(preferences, COMFORT_WORDS):
+        needs.append("a comfortable trip")
+    return " and ".join(needs) or None
 
 
 # --- suitable options and reasons -----------------------------------------------------
@@ -78,19 +99,43 @@ class Suitable:
     """True when something was skipped, so "of the practical options" would be wrong."""
 
 
+def _bike_skip_reason(preferences: str | None, weather: WeatherInfo | None) -> str | None:
+    if mentions(preferences, LUGGAGE_WORDS):
+        return "you mentioned luggage"
+    if mentions(preferences, BULKY_WORDS):
+        return "you have bulky equipment"
+    if mentions(preferences, COMFORT_WORDS):
+        return "comfort matters to you"
+    weather_problem = bad_for_cycling(weather) if weather else None
+    return f"of {weather_problem}" if weather_problem else None
+
+
+def _coach_skip_reason(
+    comparison: ComparisonResult, preferences: str | None, modes: set[TransportMode]
+) -> str | None:
+    """On long trips the train beats the coach for comfort and for bulky equipment."""
+    if comparison.route.distance_km < LONG_TRIP_KM or not {M.TRAIN, M.COACH} <= modes:
+        return None
+    if mentions(preferences, BULKY_WORDS):
+        return "the train is easier with bulky equipment"
+    if mentions(preferences, COMFORT_WORDS):
+        return "the train is more comfortable"
+    return None
+
+
 def suitable_options(
     comparison: ComparisonResult, preferences: str | None, weather: WeatherInfo | None
 ) -> Suitable:
     practical = [o for o in comparison.options if o.practical] or list(comparison.options)
     options, notes = list(practical), []
-    has_bike = any(o.mode is M.BIKE for o in options)
-    if has_bike and mentions(preferences, LUGGAGE_WORDS):
+    bike_reason = _bike_skip_reason(preferences, weather)
+    if bike_reason and any(o.mode is M.BIKE for o in options):
         options = [o for o in options if o.mode is not M.BIKE]
-        notes.append("Bike skipped because you mentioned luggage.")
-    weather_problem = bad_for_cycling(weather) if weather else None
-    if weather_problem and any(o.mode is M.BIKE for o in options):
-        options = [o for o in options if o.mode is not M.BIKE]
-        notes.append(f"Bike skipped because of {weather_problem}.")
+        notes.append(f"Bike skipped because {bike_reason}.")
+    coach_reason = _coach_skip_reason(comparison, preferences, {o.mode for o in options})
+    if coach_reason:
+        options = [o for o in options if o.mode is not M.COACH]
+        notes.append(f"Coach skipped: on a trip over {LONG_TRIP_KM:.0f} km {coach_reason}.")
     if not options:
         return Suitable(practical, notes, narrowed=False)
     return Suitable(options, notes, narrowed=len(options) < len(practical))
