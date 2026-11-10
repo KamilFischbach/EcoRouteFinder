@@ -1,13 +1,15 @@
+import {
+  FIELD_LIMITS,
+  compactErrors,
+  parseDecimal,
+  validateDistance,
+  validatePassengers,
+  validatePlace,
+} from '@/lib/validators';
 import type { TransportMode, Trip, TripInput } from '@/types/trip';
 
-// Limits mirror backend/app/schemas/trip.py.
-export const TRIP_LIMITS = {
-  placeMaxLength: 120,
-  noteMaxLength: 500,
-  maxDistanceKm: 40_000,
-  minPassengers: 1,
-  maxPassengers: 9,
-} as const;
+export { hasErrors } from '@/lib/validators';
+export const TRIP_LIMITS = FIELD_LIMITS;
 
 /** Raw form state: inputs hold strings until the form is submitted. */
 export interface TripFormValues {
@@ -30,62 +32,18 @@ export const EMPTY_TRIP_FORM: TripFormValues = {
   note: '',
 };
 
-/** Accepts both "12.5" and "12,5". */
-function parseDecimal(raw: string): number {
-  return Number(raw.trim().replace(',', '.'));
-}
-
-function validatePlace(value: string, emptyMessage: string): string | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return emptyMessage;
-  if (trimmed.length > TRIP_LIMITS.placeMaxLength) {
-    return `Maximum ${TRIP_LIMITS.placeMaxLength} characters.`;
-  }
-  return undefined;
-}
-
-function validateDistance(raw: string): string | undefined {
-  if (!raw.trim()) return 'Enter a distance.';
-  const distance = parseDecimal(raw);
-  if (!Number.isFinite(distance) || distance <= 0)
-    return 'Distance must be a number greater than 0.';
-  if (distance > TRIP_LIMITS.maxDistanceKm) return 'Distance cannot exceed 40,000 km.';
-  return undefined;
-}
-
-function validatePassengers(raw: string): string | undefined {
-  const passengers = Number(raw);
-  const { minPassengers, maxPassengers } = TRIP_LIMITS;
-  if (
-    !raw.trim() ||
-    !Number.isInteger(passengers) ||
-    passengers < minPassengers ||
-    passengers > maxPassengers
-  ) {
-    return `Passengers must be a whole number from ${minPassengers} to ${maxPassengers}.`;
-  }
-  return undefined;
-}
-
 export function validateTrip(values: TripFormValues): TripFormErrors {
-  const errors: TripFormErrors = {
+  return compactErrors({
     origin: validatePlace(values.origin, 'Enter a starting point.'),
     destination: validatePlace(values.destination, 'Enter a destination.'),
     distanceKm: validateDistance(values.distanceKm),
     passengers: validatePassengers(values.passengers),
     mode: values.mode ? undefined : 'Choose a transport mode.',
     note:
-      values.note.trim().length > TRIP_LIMITS.noteMaxLength
-        ? `Note can be at most ${TRIP_LIMITS.noteMaxLength} characters.`
+      values.note.trim().length > FIELD_LIMITS.noteMaxLength
+        ? `Note can be at most ${FIELD_LIMITS.noteMaxLength} characters.`
         : undefined,
-  };
-  return Object.fromEntries(
-    Object.entries(errors).filter(([, message]) => message !== undefined),
-  ) as TripFormErrors;
-}
-
-export function hasErrors(errors: TripFormErrors): boolean {
-  return Object.keys(errors).length > 0;
+  });
 }
 
 /** Converts validated form values to the API payload. */

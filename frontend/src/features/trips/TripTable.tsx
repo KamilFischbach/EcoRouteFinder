@@ -33,8 +33,8 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
             <th scope="col" className={cn(TH, 'hidden sm:table-cell')}>
               Transport
             </th>
-            <th scope="col" className={cn(TH, 'hidden lg:table-cell')}>
-              CO₂
+            <th scope="col" className={cn(TH, 'hidden sm:table-cell')}>
+              CO₂ / person
             </th>
             <th scope="col" className={cn(TH, 'text-right sm:pr-6')}>
               <span className="sr-only">Actions</span>
@@ -67,8 +67,11 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                       {trip.note}
                     </div>
                   )}
-                  <div className="mt-2 sm:hidden">
+                  <div className="mt-2 flex items-center gap-2 sm:hidden">
                     <ModeBadge mode={trip.mode} />
+                    <span className="text-xs text-stone-600 tabular-nums">
+                      {formatCo2(trip.co2_kg)} CO₂
+                    </span>
                   </div>
                 </td>
                 <td className="hidden px-4 py-3.5 whitespace-nowrap text-stone-700 tabular-nums md:table-cell">
@@ -81,8 +84,13 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                   <ModeBadge mode={trip.mode} />
                 </td>
                 <td
-                  className="hidden px-4 py-3.5 text-stone-400 tabular-nums lg:table-cell"
-                  title={trip.co2_kg === null ? 'CO₂ calculation coming soon' : undefined}
+                  className={cn(
+                    'hidden px-4 py-3.5 whitespace-nowrap tabular-nums sm:table-cell',
+                    trip.co2_kg === null ? 'text-stone-400' : 'text-stone-700',
+                  )}
+                  title={
+                    trip.co2_kg === null ? 'Edit and save this trip to calculate CO₂' : undefined
+                  }
                 >
                   {formatCo2(trip.co2_kg)}
                 </td>
