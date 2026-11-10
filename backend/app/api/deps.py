@@ -8,6 +8,7 @@ from sqlmodel import Session
 
 from app.core.config import get_settings
 from app.db import get_session
+from app.repositories.comparison_repository import ComparisonRepository
 from app.repositories.trip_repository import TripRepository
 from app.services.comparison_service import ComparisonService
 from app.services.routing import RouteProvider, build_route_provider
@@ -30,9 +31,10 @@ def get_route_provider() -> RouteProvider:
 
 
 def get_comparison_service(
+    session: SessionDep,
     route_provider: Annotated[RouteProvider, Depends(get_route_provider)],
 ) -> ComparisonService:
-    return ComparisonService(route_provider)
+    return ComparisonService(route_provider, ComparisonRepository(session))
 
 
 ComparisonServiceDep = Annotated[ComparisonService, Depends(get_comparison_service)]

@@ -15,7 +15,7 @@ from tests.fakes import FakeRouteProvider, make_route
 
 def test_compare_uses_route_provider_and_returns_every_mode() -> None:
     provider = FakeRouteProvider()
-    comparison = ComparisonService(provider).compare("Warszawa", "Kraków", passengers=2)
+    comparison = ComparisonService(provider).compute("Warszawa", "Kraków", passengers=2)
 
     assert provider.calls == [("Warszawa", "Kraków")]
     assert comparison.route.source == "osrm"
@@ -25,14 +25,14 @@ def test_compare_uses_route_provider_and_returns_every_mode() -> None:
 
 
 def test_options_are_sorted_by_co2() -> None:
-    comparison = ComparisonService(FakeRouteProvider()).compare("Warszawa", "Kraków", 2)
+    comparison = ComparisonService(FakeRouteProvider()).compute("Warszawa", "Kraków", 2)
 
     co2 = [option.co2_kg for option in comparison.options]
     assert co2 == sorted(co2)
 
 
 def test_mode_distances_road_vs_great_circle() -> None:
-    options = {o.mode: o for o in ComparisonService(FakeRouteProvider()).compare("A", "B").options}
+    options = {o.mode: o for o in ComparisonService(FakeRouteProvider()).compute("A", "B").options}
 
     assert options[TransportMode.CAR_PETROL].distance_km == 293.4
     assert options[TransportMode.COACH].distance_km == 293.4
@@ -42,7 +42,7 @@ def test_mode_distances_road_vs_great_circle() -> None:
 
 def test_per_person_values_and_savings_vs_driving_alone() -> None:
     options = {
-        o.mode: o for o in ComparisonService(FakeRouteProvider()).compare("A", "B", 2).options
+        o.mode: o for o in ComparisonService(FakeRouteProvider()).compute("A", "B", 2).options
     }
     petrol = options[TransportMode.CAR_PETROL]
     train = options[TransportMode.TRAIN]
@@ -57,7 +57,7 @@ def test_per_person_values_and_savings_vs_driving_alone() -> None:
 
 
 def test_impractical_options_and_highlights() -> None:
-    comparison = ComparisonService(FakeRouteProvider()).compare("A", "B", 2)
+    comparison = ComparisonService(FakeRouteProvider()).compute("A", "B", 2)
     options = {o.mode: o for o in comparison.options}
 
     assert options[TransportMode.PLANE].practical is False  # 252 km < 300 km
@@ -71,7 +71,7 @@ def test_impractical_options_and_highlights() -> None:
 
 def test_user_distance_skips_the_network() -> None:
     provider = FakeRouteProvider()
-    comparison = ComparisonService(provider).compare("Home", "Work", 1, distance_km=12)
+    comparison = ComparisonService(provider).compute("Home", "Work", 1, distance_km=12)
 
     assert provider.calls == []
     assert comparison.route.source == "user"
@@ -86,7 +86,7 @@ def test_user_distance_skips_the_network() -> None:
 def test_estimated_route_is_passed_through() -> None:
     provider = FakeRouteProvider(make_route(source="estimate", driving_duration_min=None))
 
-    comparison = ComparisonService(provider).compare("A", "B")
+    comparison = ComparisonService(provider).compute("A", "B")
 
     assert comparison.route.source == "estimate"
 
@@ -95,7 +95,7 @@ def test_route_too_short_raises() -> None:
     provider = FakeRouteProvider(make_route(great_circle_km=0.2, road_km=0.3))
 
     with pytest.raises(RouteTooShortError):
-        ComparisonService(provider).compare("A", "A")
+        ComparisonService(provider).compute("A", "A")
 
 
 @pytest.mark.parametrize("error", [PlaceNotFoundError("Atlantis"), ExternalServiceError("x")])
@@ -103,7 +103,7 @@ def test_provider_errors_propagate(error: AppError) -> None:
     provider = FakeRouteProvider(error=error)
 
     with pytest.raises(type(error)):
-        ComparisonService(provider).compare("A", "Atlantis")
+        ComparisonService(provider).compute("A", "Atlantis")
 
 
 def test_no_practical_options_gives_empty_highlights() -> None:

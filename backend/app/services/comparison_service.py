@@ -1,64 +1,38 @@
-"""Compare every transport mode for one route (per person). Nothing is stored.
+"""Compare every transport mode for one route (per person), and keep a history of comparisons.
 
 Distance per mode:
 - cars and coach use the road distance (OSRM, estimate or the user's number),
 - train, plane and bike use great-circle distance x the mode's detour factor.
 When the user gives `distance_km`, it is treated as the road distance and no network call is made.
+
+`compute()` never touches the database, so it can back an AI tool. `create()` computes and
+stores a snapshot; history reads return that snapshot without recomputing.
 """
 
 from dataclasses import dataclass
 
-from app.core.errors import RouteTooShortError
+from app.core.errors import NotFoundError, RouteTooShortError
+from app.models.comparison import Comparison
 from app.models.trip import TransportMode
-from app.services.emissions import OptionEstimate, calculate_emissions, estimate_option
+from app.repositories.comparison_repository import ComparisonRepository
+from app.services import comparison_snapshot as snapshot
+from app.services.comparison_models import (
+    ComparedOption,
+    ComparedRoute,
+    ComparisonResult,
+    ComparisonSummary,
+    Highlights,
+    RoutePoint,
+    SavedComparison,
+)
+from app.services.emissions import calculate_emissions, estimate_option
 from app.services.routing import RouteProvider
 from app.services.transport_factors import FACTORS
 
+__all__ = ["ComparisonService", "Highlights", "mode_distance_km", "pick_highlights"]
+
 ROAD_MODES = frozenset({TransportMode.CAR_PETROL, TransportMode.CAR_EV, TransportMode.COACH})
 MIN_ROUTE_KM = 1.0
-
-
-@dataclass(frozen=True)
-class RoutePoint:
-    name: str
-    lat: float | None
-    lon: float | None
-
-
-@dataclass(frozen=True)
-class ComparedRoute:
-    origin: RoutePoint
-    destination: RoutePoint
-    distance_km: float
-    source: str  # "osrm" | "estimate" | "user"
-
-
-@dataclass(frozen=True)
-class ComparedOption:
-    mode: TransportMode
-    distance_km: float
-    duration_min: int
-    cost_pln: float
-    co2_kg: float
-    co2_saved_vs_car_kg: float
-    """kg CO2 saved per person compared to driving alone in a petrol car (negative = more)."""
-    practical: bool
-    note: str | None
-
-
-@dataclass(frozen=True)
-class Highlights:
-    greenest: TransportMode | None
-    fastest: TransportMode | None
-    cheapest: TransportMode | None
-
-
-@dataclass(frozen=True)
-class Comparison:
-    route: ComparedRoute
-    passengers: int
-    options: list[ComparedOption]
-    highlights: Highlights
 
 
 @dataclass(frozen=True)
@@ -86,28 +60,68 @@ def pick_highlights(options: list[ComparedOption]) -> Highlights:
 
 
 class ComparisonService:
-    def __init__(self, route_provider: RouteProvider) -> None:
+    def __init__(
+        self, route_provider: RouteProvider, repository: ComparisonRepository | None = None
+    ) -> None:
         self._route_provider = route_provider
+        self._repository = repository
 
-    def compare(
+    # --- computing (no database) ----------------------------------------------
+
+    def compute(
         self,
         origin: str,
         destination: str,
         passengers: int = 1,
         distance_km: float | None = None,
-    ) -> Comparison:
+    ) -> ComparisonResult:
         resolved = self._resolve_route(origin, destination, distance_km)
         if resolved.road_km < MIN_ROUTE_KM:
             raise RouteTooShortError(resolved.road_km)
         baseline_kg = calculate_emissions(resolved.road_km, TransportMode.CAR_PETROL, 1)
         options = [self._option(mode, resolved, passengers, baseline_kg) for mode in TransportMode]
         options.sort(key=lambda o: (o.co2_kg, o.duration_min))
-        return Comparison(
+        return ComparisonResult(
             route=resolved.route,
             passengers=passengers,
             options=options,
             highlights=pick_highlights(options),
         )
+
+    # --- history ----------------------------------------------------------------
+
+    def create(
+        self,
+        origin: str,
+        destination: str,
+        passengers: int = 1,
+        distance_km: float | None = None,
+    ) -> SavedComparison:
+        result = self.compute(origin, destination, passengers, distance_km)
+        record = snapshot.to_record(result, origin, destination, distance_km)
+        return snapshot.to_saved(self._repo().save(record))
+
+    def list_recent(self, limit: int = 20, offset: int = 0) -> list[ComparisonSummary]:
+        return [snapshot.to_summary(r) for r in self._repo().list_recent(limit, offset)]
+
+    def get(self, comparison_id: int) -> SavedComparison:
+        return snapshot.to_saved(self._get_record(comparison_id))
+
+    def delete(self, comparison_id: int) -> None:
+        self._repo().delete(self._get_record(comparison_id))
+
+    # --- helpers ----------------------------------------------------------------
+
+    def _repo(self) -> ComparisonRepository:
+        if self._repository is None:
+            raise RuntimeError("ComparisonService was created without a repository")
+        return self._repository
+
+    def _get_record(self, comparison_id: int) -> Comparison:
+        record = self._repo().get(comparison_id)
+        if record is None:
+            raise NotFoundError("Comparison", comparison_id)
+        return record
 
     def _resolve_route(
         self, origin: str, destination: str, distance_km: float | None
@@ -138,9 +152,7 @@ class ComparisonService:
         mode: TransportMode, resolved: _ResolvedRoute, passengers: int, baseline_kg: float
     ) -> ComparedOption:
         distance = mode_distance_km(mode, resolved.road_km, resolved.great_circle_km)
-        estimate: OptionEstimate = estimate_option(
-            mode, distance, passengers, resolved.driving_duration_min
-        )
+        estimate = estimate_option(mode, distance, passengers, resolved.driving_duration_min)
         return ComparedOption(
             mode=estimate.mode,
             distance_km=estimate.distance_km,

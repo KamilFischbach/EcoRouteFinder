@@ -1,11 +1,20 @@
 """DTOs for the comparisons API. All CO2 and cost values are per person."""
 
-from typing import Literal
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AfterValidator, BaseModel, ConfigDict
 
 from app.models.trip import TransportMode
 from app.schemas.trip import DistanceKm, Passengers, PlaceName
+
+
+def _assume_utc(value: datetime) -> datetime:
+    # SQLite drops tzinfo; values are always stored in UTC.
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+UtcDatetime = Annotated[datetime, AfterValidator(_assume_utc)]
 
 
 class ComparisonCreate(BaseModel):
@@ -53,7 +62,28 @@ class HighlightsRead(_FromAttributes):
 
 
 class ComparisonRead(_FromAttributes):
+    """A stored comparison: the snapshot taken when it was created, plus advice if any."""
+
+    id: int
+    created_at: UtcDatetime
     route: RouteRead
     passengers: int
     options: list[ComparisonOptionRead]
     highlights: HighlightsRead
+    # TODO(ai): replace with a typed AdviceRead once the advisor exists.
+    advice: dict[str, Any] | None
+
+
+class ComparisonSummaryRead(_FromAttributes):
+    """Lightweight row for the history list."""
+
+    id: int
+    origin: str
+    destination: str
+    passengers: int
+    distance_km: float
+    created_at: UtcDatetime
+    greenest_mode: TransportMode | None
+    greenest_co2_kg: float | None
+    solo_car_co2_kg: float
+    recommended_mode: TransportMode | None

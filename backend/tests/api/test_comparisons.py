@@ -20,7 +20,7 @@ def test_comparison_returns_route_options_and_highlights(
 ) -> None:
     response = client.post(URL, json=_payload())
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
     assert body["route"] == {
         "origin": {"name": "Warszawa", "lat": 52.2297, "lon": 21.0122},
@@ -52,7 +52,7 @@ def test_comparison_with_manual_distance_skips_routing(
 ) -> None:
     response = client.post(URL, json=_payload(distance_km=15, passengers=1))
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
     assert body["route"]["source"] == "user"
     assert body["route"]["origin"] == {"name": "Warszawa", "lat": None, "lon": None}
