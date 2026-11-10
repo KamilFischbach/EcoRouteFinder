@@ -4,7 +4,7 @@
 
 **EcoRoute compares ways to travel the same route by time, cost and carbon footprint.** Enter where you start, where you're going and how many people are travelling. EcoRoute compares a petrol car, an electric car, train, coach, plane and bike, and lets you keep a history of your trips.
 
-> **Status:** trip history, CO₂ per trip and the mode comparison work end to end. The dashboard, map and AI features are scaffolded and coming next.
+> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, and the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM) work end to end. The dashboard and map are next.
 
 A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and act as an advisor. The core rule: **the LLM never calculates emissions.** Deterministic code does the maths; the model only picks tools and explains the results. Every AI feature has a rule-based fallback, so the app works without a model.
 
@@ -13,9 +13,11 @@ A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and ac
 - [x] Trip history: add, edit, delete (with confirmation), filter by transport mode, CO₂ per person for each trip
 - [x] Mode comparison: time, cost and kg CO₂ per person for six modes, with Greenest / Fastest / Cheapest picks, a CO₂ chart and one-click "Save trip"
 - [x] Real routes from OpenStreetMap (Nominatim + OSRM) with an offline fallback estimate
+- [x] Comparison history: every comparison is saved as a snapshot, linkable at `/compare/:id`
+- [x] "Describe your trip": free text (English or Polish) fills in the compare form, via a local LLM or rules
+- [x] EcoAdvisor: a tool-calling agent that recommends one option, checks the weather and explains why, with a rule-based fallback
 - [x] REST API with validation and a consistent error format
 - [ ] Dashboard: CO₂ over time, kg saved, eco-points _(coming soon)_
-- [ ] AI trip parser (structured output) + tool-calling advisor, with rule-based fallback _(coming soon)_
 
 ## Creative twist
 
@@ -29,7 +31,9 @@ _Coming soon._
 | Backend quality | pytest + httpx, ruff (lint + format), mypy (strict) |
 | Frontend | Vite, React 19, TypeScript (strict), React Router, TanStack Query, Tailwind CSS 4 |
 | Frontend quality | Vitest, React Testing Library, MSW, ESLint, Prettier |
-| Planned | Recharts (dashboard), react-leaflet (map), Ollama + `qwen2.5:7b` (AI) |
+| AI | Local LLM via [Ollama](https://ollama.com) (`qwen2.5:7b`) over plain `httpx`: structured output + tool calling |
+| External data | OpenStreetMap Nominatim + OSRM (routes), Open-Meteo (weather); no API keys |
+| Planned | react-leaflet (map), dashboard charts |
 | CI | GitHub Actions (parallel backend and frontend jobs) |
 
 ## Project structure
@@ -43,16 +47,17 @@ backend/
     models/            # SQLModel tables
     schemas/           # request/response DTOs + validation
     repositories/      # database access
-    services/          # business logic: trips, comparison, emissions + factors, routing (weather: stub)
-    ai/                # LLM client interface, prompts, parser and advisor skeletons
-    api/v1/            # routers: health, trips, comparisons
+    services/          # business logic: trips, comparisons + snapshots, emissions + factors, routing, weather, advice
+    ai/                # LLM client (Ollama), prompts, tool registry, trip parser + rules, advisor agent
+    api/v1/            # routers: health, trips, comparisons (+ advice), trip-drafts
   tests/               # api/ and unit/ tests (in-memory SQLite)
 frontend/
   src/
     api/               # fetch client, endpoint functions
     components/        # shared UI components
     features/trips/    # trip form, table, validation, TanStack Query hooks
-    features/compare/  # compare form, results cards, CO2 chart
+    features/compare/  # compare form, describe-your-trip, results, CO2 chart, history, EcoAdvisor
+    features/ai/       # AI status badge (polls /health)
     lib/               # formatting, shared validators, helpers
     pages/             # Trips, Compare, Dashboard (placeholder)
     types/             # shared TypeScript types
@@ -100,12 +105,16 @@ npm run dev
 
 ### 3. Optional: local AI with Ollama
 
-AI features aren't implemented yet, but this is the model they'll use:
+Install [Ollama](https://ollama.com/download), then pull the model once:
 
 ```powershell
 ollama pull qwen2.5:7b
-# then in backend/.env: AI_ENABLED=true (OLLAMA_HOST defaults to http://localhost:11434)
+ollama list                            # should show qwen2.5:7b
 ```
+
+Ollama runs in the background on `http://localhost:11434`. Restart nothing: the backend checks for the model every 30 s, and the header switches to **AI online · qwen2.5:7b**.
+
+**Without Ollama the app still works.** The header shows **AI offline (rule-based)**, "Describe your trip" uses regex rules, and EcoAdvisor uses a rule-based recommender. Set `AI_ENABLED=false` to never contact Ollama. A 7B model on CPU can take 10-30 s per answer; with a GPU it's 1-3 s (the first call also loads the model).
 
 ### Configuration
 
@@ -113,9 +122,12 @@ ollama pull qwen2.5:7b
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///./ecoroute.db` | backend `.env` |
 | `CORS_ORIGINS` | `http://localhost:5173` (comma-separated) | backend `.env` |
+| `AI_ENABLED` | `true` (falls back to rules when Ollama isn't running) | backend `.env` |
 | `OLLAMA_HOST` | `http://localhost:11434` | backend `.env` |
 | `OLLAMA_MODEL` | `qwen2.5:7b` | backend `.env` |
-| `AI_ENABLED` | `false` | backend `.env` |
+| `OLLAMA_TIMEOUT_S` | `90` (per LLM call) | backend `.env` |
+| `OLLAMA_TEMPERATURE` | `0.2` | backend `.env` |
+| `WEATHER_URL` | `https://api.open-meteo.com` | backend `.env` |
 | `GEOCODER_URL` | `https://nominatim.openstreetmap.org` | backend `.env` |
 | `ROUTING_URL` | `https://router.project-osrm.org` | backend `.env` |
 | `HTTP_TIMEOUT_S` | `8` | backend `.env` |
@@ -128,13 +140,18 @@ ollama pull qwen2.5:7b
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/v1/health` | `{status, ai_available}` |
+| `GET` | `/api/v1/health` | `{status, ai_available, ai_model}` |
 | `GET` | `/api/v1/trips?mode=` | List trips, newest first, optional mode filter |
 | `POST` | `/api/v1/trips` | Create a trip → `201` |
 | `GET` | `/api/v1/trips/{id}` | Get one trip → `404` if missing |
 | `PUT` | `/api/v1/trips/{id}` | Update the fields sent in the body |
 | `DELETE` | `/api/v1/trips/{id}` | Delete → `204` |
-| `POST` | `/api/v1/comparisons` | Compare all modes for `{origin, destination, passengers, distance_km?}`. Stores nothing |
+| `POST` | `/api/v1/comparisons` | Compare all modes for `{origin, destination, passengers, distance_km?}` and save it → `201` |
+| `GET` | `/api/v1/comparisons?limit=20&offset=0` | History, newest first (summary rows) |
+| `GET` | `/api/v1/comparisons/{id}` | A saved comparison (snapshot + advice) → `404` if missing |
+| `DELETE` | `/api/v1/comparisons/{id}` | Delete → `204` |
+| `POST` | `/api/v1/comparisons/{id}/advice` | Ask EcoAdvisor, optional `{preferences}` (max 300 chars). Always `200` (LLM or rules); stored with the comparison |
+| `POST` | `/api/v1/trip-drafts` | `{text}` (1-500 chars) → form pre-fill `{origin, destination, passengers, mode, missing_fields, parsed_by}`. Stores nothing |
 
 Errors always use one shape: `{"error": {"code": "NOT_FOUND", "message": "...", "details": ...}}`. Codes are upper case: `NOT_FOUND`, `VALIDATION_ERROR`, `UNKNOWN_PLACE` (422), `ROUTE_TOO_SHORT` (422), `SERVICE_UNAVAILABLE` (503), `INTERNAL_ERROR`.
 
@@ -175,6 +192,53 @@ DESNZ = UK Department for Energy Security and Net Zero, [GHG conversion factors 
    - User enters a distance under **Advanced**: no network calls at all.
 
 Public Nominatim and OSRM servers are fine for a demo but not for heavy traffic. For production, point `GEOCODER_URL` / `ROUTING_URL` at your own instances.
+
+## Comparison history and snapshots
+
+Every comparison is saved (`comparison` table) and gets a linkable URL, `/compare/:id`. The result is stored as a **versioned JSON snapshot** of the options and highlights, because emission factors may change later and the history should show what you saw at the time. Opening a saved comparison reads the snapshot; nothing is recomputed. A few values (greenest mode and its CO₂, solo-car CO₂, EcoAdvisor's pick) are also stored as plain columns, so the "Recent comparisons" list stays cheap. EcoAdvisor's latest answer is stored with its comparison.
+
+The table is created by `init_db()` at startup, so an existing `ecoroute.db` just gains the new table and keeps its trips.
+
+## AI features
+
+Two features use a **local LLM through Ollama**. Neither depends on it: each has a deterministic fallback, and the model never calculates anything.
+
+| Feature | LLM does | Code does |
+|---|---|---|
+| "Describe your trip" (`POST /trip-drafts`) | Extracts origin, destination, passengers, mode from English or Polish text (structured output) | Validates the JSON with Pydantic, checks both places occur in the text, falls back to regex rules |
+| EcoAdvisor (`POST /comparisons/{id}/advice`) | Chooses tools, picks one option, explains it | Runs the tools (comparison, emissions, weather), checks the pick, falls back to rules |
+
+**Architecture**
+
+- `LLMClient` is a Protocol; `OllamaClient` implements it with plain `httpx` calls to `/api/chat` (`stream: false`, JSON-schema `format`, `tools`). Tests use a scripted fake, so the test suite never needs Ollama.
+- **Tool registry** (`ai/tools.py`): `compare_travel_options`, `get_weather`, `calculate_emissions`. Each tool = Pydantic argument model + thin handler around a service. The JSON schema for the LLM comes from the model, arguments are validated before running, and errors go back to the LLM as `{"error": ...}` instead of crashing.
+- **Agent loop** (`ai/advisor_agent.py`): system prompt + saved comparison + destination weather + your preferences → up to 4 rounds of tool calls → a separate final call with a JSON schema (`recommended_mode`, `summary`, `reasons`).
+- **Grounding check:** the pick must be a *practical* option of this comparison, and never the bike with luggage or in bad weather.
+- **Fallback:** any failure (Ollama off, timeout, too many steps, invalid JSON, failed check) → rule-based advice: the greenest practical option, bike skipped in rain/wind/cold/heat, simple "cheapest" / "fastest" / "luggage" keywords (English and Polish), templated text.
+- All prompts live in `ai/prompts.py` as versioned constants. The UI shows whether an answer came from **AI · qwen2.5:7b** or **Rule-based (AI offline)**, plus the tool trace under "How I got this".
+
+```mermaid
+flowchart TD
+    A[POST /comparisons/id/advice] --> B[Load saved comparison + destination weather]
+    B --> C{LLM client available?}
+    C -- no --> R[Rule-based advice]
+    C -- yes --> D[Chat: context + tool specs]
+    D --> E{Tool calls?}
+    E -- yes --> F[Validate args, run tool via registry]
+    F --> G[Send result as role=tool message]
+    G --> H{Step < MAX_STEPS?}
+    H -- yes --> D
+    H -- no --> R
+    E -- no --> I[Final chat with JSON schema]
+    I --> J{Valid JSON and grounded?}
+    J -- yes --> K[AI advice]
+    J -- no --> R
+    D -. LLMError / timeout .-> R
+    K --> S[Store with comparison, return 200]
+    R --> S
+```
+
+**Known limitations.** A 7B model reliably picks a sensible option and quotes numbers from the data, but it sometimes compares them wrongly in its prose (e.g. calling the most expensive practical option "one of the cheapest"). The grounding check catches a wrong *pick*, not every wrong *sentence*. The rule-based parser keeps Polish place names as written ("z Gdyni" → "Gdyni"); the geocoder usually copes.
 
 ## Running tests and checks
 

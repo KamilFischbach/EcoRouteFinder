@@ -4,48 +4,59 @@ Instructions for AI coding agents (and humans) working on **EcoRoute**. Read thi
 
 ## 1. What this project is
 
-EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips to a history (CRUD). Planned next: a dashboard with charts, a map, and AI features running on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback.
+EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. Planned next: a dashboard with charts, a map, an MCP server on top of `ai/tools.py`.
 
 Status:
-- **Implemented:** Trip CRUD with CO₂ per person, emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`), routing via Nominatim + OSRM with fallback (`services/routing.py`), `POST /api/v1/comparisons` (`services/comparison_service.py`), Compare page with chart.
-- **Skeletons with `TODO`s (not implemented):** `services/weather.py`, everything in `app/ai/`, the Dashboard page, the map. Do not treat them as implemented.
+- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history, "Describe your trip" and EcoAdvisor card; AI status badge.
+- **Not implemented yet:** the Dashboard page and the map. Do not treat them as implemented.
 
 **All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values compare against one person driving alone in a petrol car. Keep it that way.
 
-Services that an AI agent or MCP server will call later (`emissions`, `routing`, `comparison_service`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
+Services that AI tools (and later an MCP server) call (`emissions`, `routing`, `weather`, `ComparisonService.compute`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
 
 ## 2. Repository map
 
 ```
 backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
   app/main.py            create_app(): CORS, error handlers, routers. `app` = ASGI entrypoint
-  app/core/config.py     Settings (env vars / .env): DATABASE_URL, CORS_ORIGINS, OLLAMA_*, AI_ENABLED,
-                         GEOCODER_URL, ROUTING_URL, HTTP_TIMEOUT_S, HTTP_USER_AGENT
+  app/core/config.py     Settings (env vars / .env): DATABASE_URL, CORS_ORIGINS, AI_ENABLED, OLLAMA_*,
+                         GEOCODER_URL, ROUTING_URL, HTTP_TIMEOUT_S, HTTP_USER_AGENT, WEATHER_URL
   app/core/errors.py     Domain errors (NotFoundError, PlaceNotFoundError, RouteTooShortError,
                          ExternalServiceError). No HTTP here
   app/db.py              engine, get_session (dependency), init_db (create tables at startup)
   app/models/            SQLModel table models (DB shape only)
-  app/schemas/           Pydantic DTOs: request/response contracts + validation (trip.py, comparison.py)
-  app/repositories/      DB access. The ONLY layer that uses Session
+  app/models/            Trip, Comparison (result + advice stored as JSON)
+  app/schemas/           Pydantic DTOs: request/response contracts + validation (trip, comparison, trip_draft, health)
+  app/repositories/      DB access. The ONLY layer that uses Session (trip_, comparison_repository.py)
   app/services/          Business logic:
     transport_factors.py   Per-mode CO2/cost/speed/overhead/detour/limits, each value with its source
     emissions.py           Pure per-person CO2, cost, duration, practicality (OptionEstimate)
-    routing.py             RouteProvider Protocol, OsmRouteProvider (Nominatim + OSRM), haversine fallback
-    comparison_service.py  Compares all modes for a route, picks highlights
+    routing.py             RouteProvider Protocol (get_route, geocode), OsmRouteProvider, haversine fallback
+    comparison_models.py   Dataclasses: ComparisonResult, SavedComparison, ComparisonSummary, ...
+    comparison_service.py  compute() (no DB) + create/list/get/delete/save_advice (history)
+    comparison_snapshot.py The ONLY place that maps records <-> snapshots <-> dataclasses
+    weather.py             Open-Meteo WeatherProvider, bad_for_cycling thresholds
+    advice_service.py      Runs the advisor for a saved comparison and stores the answer
     trip_service.py        Trip use cases, fills co2_kg
-    weather.py             TODO stub
-  app/ai/                llm_client.py (LLMClient Protocol), prompts.py, trip_parser.py, advisor_agent.py
-  app/api/deps.py        Dependency wiring: session -> repository -> service; one RouteProvider per process
+  app/ai/
+    llm_client.py          LLMClient Protocol, OllamaClient (httpx), LLMError, message helpers
+    prompts.py             ALL prompts (versioned constants)
+    tools.py               ALL tools: the registry (args model + handler + description)
+    trip_parser.py         LLM parser (structured output + checks) -> trip_rules.py fallback
+    advisor_agent.py       Tool loop, final structured answer, grounding check, rule_based_advice
+  app/api/deps.py        Dependency wiring; one RouteProvider / LLMClient / WeatherProvider per process
   app/api/error_handlers.py  Exception -> JSON error mapping (domain error -> status code table)
-  app/api/v1/            Routers: health.py, trips.py, comparisons.py
-  tests/conftest.py      In-memory SQLite, get_session + get_route_provider overrides, TestClient
-  tests/fakes.py         FakeRouteProvider / make_route: use these instead of the network
+  app/api/v1/            Routers: health, trips, comparisons (+ /{id}/advice), trip_drafts
+  tests/conftest.py      In-memory SQLite; overrides for session, route provider, LLM (`llm` slot), weather
+  tests/fakes.py         FakeRouteProvider, FakeLLMClient (scripted replies), FakeWeather: never use the network
   tests/api/             HTTP-level tests      tests/unit/  service/pure-logic tests
 frontend/                Vite + React 19 + TypeScript (strict) + Tailwind 4
   src/api/               fetch client (apiFetch, ApiError), endpoint functions, error -> message
   src/components/        Shared, domain-agnostic UI (Button, Card, ConfirmDialog, Layout, ...)
   src/features/trips/    Trip feature: hooks (TanStack Query), form, validation, table
-  src/features/compare/  Compare feature: useCompareMutation, form, validation, OptionCard, Co2Chart
+  src/features/compare/  Compare feature: comparisonKeys + hooks, form, DescribeTrip, results, OptionCard,
+                         Co2Chart, RecentComparisons, EcoAdvisorCard
+  src/features/ai/       AI status badge + useHealthQuery
   src/pages/             Route-level components: TripsPage, ComparePage (lazy-loaded), DashboardPage (placeholder)
   src/lib/               Small helpers: cn, format, styles, validators (shared field rules)
   src/types/             Shared TS types mirroring backend schemas
@@ -96,6 +107,10 @@ More rules:
 5. **Structured output is validated.** Pass a JSON schema (from the Pydantic model's `model_json_schema()`) and validate the reply with that model. Invalid output means fallback, not a crash.
 6. Tool calls are bounded (`MAX_STEPS`) and tool arguments are validated before execution.
 7. Model and host come from settings (`OLLAMA_HOST`, `OLLAMA_MODEL`, default `qwen2.5:7b`). Respect `AI_ENABLED=false`.
+8. **Tools are defined only in `app/ai/tools.py`** (the registry: name + description + Pydantic args model + handler). Handlers are thin wrappers around services: no maths, no DB writes, no FastAPI. A tool failure returns `{"error": ...}` to the model, never an exception. The same registry will back the MCP server, so keep it framework-free.
+9. **Ground every AI answer in data.** A recommendation must be a `practical` option of the comparison (and respect luggage/weather rules in `check_grounding`); extracted places must occur in the user's text. Add a check whenever you add an AI output that the UI trusts.
+10. **Keep AI answers transparent:** return `used_llm`, `model` and a tool trace so the UI can show "AI" vs "Rule-based" and "How I got this".
+11. Ollama API facts (checked against docs/api.md and a 0.9.6 server): `tool_calls[].function.arguments` is an object, tool results go back as `{"role": "tool", "content", "tool_name"}`, and `format` takes a JSON schema. Don't send `tools` and `format` in the same call.
 
 ## 6. Naming conventions
 
@@ -130,7 +145,8 @@ Every new piece of logic ships with tests in the same commit:
 - **Backend**: an API test for each endpoint status path (success, 404, 422, ...) in `tests/api/`, and unit tests for service and pure logic in `tests/unit/`. Use the `client`/`session` fixtures from `conftest.py` (in-memory SQLite). Never touch `ecoroute.db` or the network in tests: API tests get a `FakeRouteProvider` automatically (fixture `route_provider`), and HTTP clients are tested with `httpx.MockTransport`.
 - **Factors**: when you change a number in `transport_factors.py`, update its source comment and the README table, and fix the hand-computed expectations in the tests.
 - **Frontend**: React Testing Library + `user-event`, querying by role or label. Mock HTTP only with MSW (`src/test/handlers.ts`, override per test with `server.use`). Don't mock hooks or `fetch` directly. MSW 3 option name: `onUnhandledFrame` (not `onUnhandledRequest`).
-- AI code: test with a fake `LLMClient`, covering both the LLM path and the fallback path.
+- AI code: test with `FakeLLMClient` from `tests/fakes.py` (a script of `reply(...)`, `call_tool(...)` or exceptions), covering the LLM path **and** every fallback trigger (offline, error, bad JSON, schema violation, failed grounding, too many steps). API tests switch the LLM with the `llm` fixture (`llm.client = FakeLLMClient(...)`). MSW handlers that read a request body in an override must use `request.clone()`.
+- Before changing a prompt, run a quick manual check against a real Ollama (2-3 English and Polish examples) and note the result in the commit body.
 - Bug fix = a failing test first, then the fix.
 
 ## 9. Commands
