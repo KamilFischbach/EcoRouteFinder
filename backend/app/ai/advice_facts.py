@@ -392,7 +392,7 @@ def find_false_claims(
 # --- numbers --------------------------------------------------------------------------
 
 _NUMBER_RE = re.compile(r"(?<![\w.,])\d+(?:[.,]\d+)?")
-_IGNORED_RE = re.compile(r"co2|co₂|\b[a-z]+\d[\w.:-]*", re.IGNORECASE)  # "CO2", "qwen2.5"
+_IGNORED_RE = re.compile(r"co2|co₂|\b[a-z]+\d[\w.:-]*", re.IGNORECASE)  # "CO2", "qwen3:8b"
 
 
 def _numbers_in(text: str) -> list[str]:

@@ -131,7 +131,7 @@ export const adviceFixture: Advice = {
   summary: 'Take the coach: low CO₂ and the cheapest practical option.',
   reasons: ['11.8 kg CO₂ per person', 'About 54 PLN per person'],
   used_llm: true,
-  model: 'qwen2.5:7b',
+  model: 'qwen3:8b',
   weather: {
     location: 'Kraków',
     temperature_c: 2.8,
@@ -176,7 +176,7 @@ export const handlers = [
   ),
 
   http.get(`${API_URL}/health`, () =>
-    HttpResponse.json({ status: 'ok', ai_available: true, ai_model: 'qwen2.5:7b' }),
+    HttpResponse.json({ status: 'ok', ai_available: true, ai_model: 'qwen3:8b' }),
   ),
 
   http.post(`${API_URL}/comparisons`, async ({ request }) => {

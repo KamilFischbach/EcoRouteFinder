@@ -164,7 +164,7 @@ def known(preferences: str | None = None, tool_data: list[object] | None = None)
         "The coach takes 4 h 26 min and costs 53 PLN.",
         "It takes about 3.6 hours.",
         "Great for 2 people; it is 15 °C in Kraków.",
-        "Model qwen2.5 says hi.",
+        "Model qwen3:8b says hi.",
         "No numbers at all.",
     ],
 )

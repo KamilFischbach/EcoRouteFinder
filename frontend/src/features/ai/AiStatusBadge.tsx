@@ -10,7 +10,7 @@ const DOT: Record<Tone, string> = {
   down: 'bg-red-500',
 };
 
-/** "AI online · qwen2.5:7b" / "AI offline (rule-based)". Text collapses to a dot on phones. */
+/** "AI online · qwen3:8b" / "AI offline (rule-based)". Text collapses to a dot on phones. */
 export function AiStatusBadge() {
   const { data, isPending, isError } = useHealthQuery();
   if (isPending) return null;

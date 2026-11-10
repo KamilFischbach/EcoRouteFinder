@@ -271,7 +271,7 @@ describe('ComparePage EcoAdvisor', () => {
     await user.type(within(advisor()).getByLabelText(/preferences/i), 'cheapest please');
     await user.click(within(advisor()).getByRole('button', { name: 'Ask EcoAdvisor' }));
 
-    expect(await within(advisor()).findByText('AI · qwen2.5:7b')).toBeInTheDocument();
+    expect(await within(advisor()).findByText('AI · qwen3:8b')).toBeInTheDocument();
     expect(sent).toEqual({ preferences: 'cheapest please' });
     expect(within(advisor()).getByText(adviceFixture.summary)).toBeInTheDocument();
     expect(within(advisor()).getByText('11.8 kg CO₂ per person')).toBeInTheDocument();

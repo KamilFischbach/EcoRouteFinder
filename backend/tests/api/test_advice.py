@@ -46,13 +46,13 @@ def test_llm_advice_is_returned_and_stored(client: TestClient, llm: LLMSlot) -> 
             reply("Dry weather."),
             reply(json.dumps(final)),
         ],
-        model="qwen2.5:7b",
+        model="qwen3:8b",
     )
 
     advice = client.post(f"{URL}/{comparison_id}/advice", json={"preferences": "cheap"}).json()
 
     assert advice["used_llm"] is True
-    assert advice["model"] == "qwen2.5:7b"
+    assert advice["model"] == "qwen3:8b"
     assert advice["recommended_mode"] == "coach"
     assert advice["preferences"] == "cheap"
     assert advice["tool_trace"] == [

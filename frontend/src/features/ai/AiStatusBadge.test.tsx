@@ -16,11 +16,11 @@ describe('AiStatusBadge', () => {
   it('shows the model when AI is online', async () => {
     renderWithProviders(<AiStatusBadge />);
 
-    expect(await screen.findByRole('status')).toHaveTextContent('AI online · qwen2.5:7b');
+    expect(await screen.findByRole('status')).toHaveTextContent('AI online · qwen3:8b');
   });
 
   it('shows rule-based mode when Ollama is offline', async () => {
-    health({ status: 'ok', ai_available: false, ai_model: 'qwen2.5:7b' });
+    health({ status: 'ok', ai_available: false, ai_model: 'qwen3:8b' });
     renderWithProviders(<AiStatusBadge />);
 
     expect(await screen.findByRole('status')).toHaveTextContent('AI offline (rule-based)');

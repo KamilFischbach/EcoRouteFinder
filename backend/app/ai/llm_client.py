@@ -132,12 +132,14 @@ class OllamaClient:
         http: httpx.Client,
         model: str,
         temperature: float = 0.2,
+        think: bool = False,
         availability_ttl_s: float = AVAILABILITY_TTL_S,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._http = http
         self.model = model
         self._temperature = temperature
+        self._think = think
         self._ttl_s = availability_ttl_s
         self._clock = clock
         self._available: tuple[bool, float] | None = None
@@ -161,6 +163,8 @@ class OllamaClient:
             "model": self.model,
             "messages": messages,
             "stream": False,
+            # Always explicit: when omitted, thinking models (Qwen3) use their default (on).
+            "think": self._think,
             "options": {"temperature": self._temperature},
         }
         if tools:
@@ -201,7 +205,9 @@ def build_llm_client(settings: Settings) -> OllamaClient | None:
         base_url=settings.ollama_host.rstrip("/"),
         timeout=httpx.Timeout(settings.ollama_timeout_s, connect=5.0),
     )
-    return OllamaClient(http, settings.ollama_model, settings.ollama_temperature)
+    return OllamaClient(
+        http, settings.ollama_model, settings.ollama_temperature, think=settings.ollama_think
+    )
 
 
 @dataclass(frozen=True)

@@ -19,10 +19,13 @@ class Settings(BaseSettings):
     # Local LLM via Ollama. Without a running Ollama the app uses rule-based fallbacks.
     ai_enabled: bool = True
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:7b"
-    # A 7B model on CPU can take a while per call.
+    ollama_model: str = "qwen3:8b"
+    # An 8B model on CPU can take a while per call.
     ollama_timeout_s: float = 90.0
     ollama_temperature: float = 0.2
+    # Sent as `think` to /api/chat (Ollama >= 0.9.0). Qwen3 thinks by default, which is slow and,
+    # without this flag, puts <think>...</think> into the content and breaks structured output.
+    ollama_think: bool = False
     # Routing: OpenStreetMap Nominatim (geocoding) + OSRM (driving routes).
     geocoder_url: str = "https://nominatim.openstreetmap.org"
     routing_url: str = "https://router.project-osrm.org"

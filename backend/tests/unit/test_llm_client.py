@@ -19,7 +19,7 @@ from app.ai.llm_client import (
 from app.core.config import Settings
 
 Handler = Callable[[httpx.Request], httpx.Response]
-TAGS_OK = {"models": [{"name": "qwen2.5:7b", "model": "qwen2.5:7b"}]}
+TAGS_OK = {"models": [{"name": "qwen3:8b", "model": "qwen3:8b"}]}
 
 
 class Clock:
@@ -31,7 +31,7 @@ class Clock:
 
 
 def make_client(
-    handler: Handler, model: str = "qwen2.5:7b", clock: Clock | None = None
+    handler: Handler, model: str = "qwen3:8b", clock: Clock | None = None
 ) -> tuple[OllamaClient, list[httpx.Request]]:
     seen: list[httpx.Request] = []
 
@@ -44,7 +44,7 @@ def make_client(
 
 
 def chat_reply(message: dict[str, Any]) -> Handler:
-    return lambda _: httpx.Response(200, json={"model": "qwen2.5:7b", "message": message})
+    return lambda _: httpx.Response(200, json={"model": "qwen3:8b", "message": message})
 
 
 def raise_error(error: type[httpx.TransportError]) -> Handler:
@@ -118,10 +118,36 @@ def test_chat_returns_plain_text_and_sends_options() -> None:
     assert response == LLMResponse(content="Take the train.")
     body = json.loads(seen[0].content)
     assert seen[0].url.path == "/api/chat"
-    assert body["model"] == "qwen2.5:7b"
+    assert body["model"] == "qwen3:8b"
     assert body["stream"] is False
+    assert body["think"] is False  # Qwen3 would think (slowly) if this were left out
     assert body["options"] == {"temperature": 0.2}
     assert "tools" not in body and "format" not in body
+
+
+def test_chat_sends_think_false_with_tools_and_format() -> None:
+    schema = {"type": "object"}
+    client, seen = make_client(chat_reply({"role": "assistant", "content": "{}"}))
+
+    client.chat([user_message("hi")], tools=[{"name": "t", "description": "d", "parameters": {}}])
+    client.chat([user_message("hi")], response_schema=schema)
+
+    assert [json.loads(request.content)["think"] for request in seen] == [False, False]
+
+
+def test_chat_sends_think_true_when_enabled() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "ok"}})
+
+    http = httpx.Client(transport=httpx.MockTransport(handler), base_url="http://ollama")
+    client = OllamaClient(http, "qwen3:8b", think=True)
+
+    client.chat([user_message("hi")])
+
+    assert json.loads(seen[0].content)["think"] is True
 
 
 def test_chat_sends_schema_as_format() -> None:
@@ -224,6 +250,7 @@ def test_factory_uses_settings() -> None:
         ollama_host="http://gpu-box:11434/",
         ollama_model="llama3.1:8b",
         ollama_timeout_s=42,
+        ollama_think=True,
     )
 
     client = build_llm_client(settings)
@@ -232,3 +259,13 @@ def test_factory_uses_settings() -> None:
     assert client.model == "llama3.1:8b"
     assert str(client._http.base_url) == "http://gpu-box:11434"
     assert client._http.timeout.read == 42
+    assert client._think is True
+
+
+def test_settings_turn_thinking_off_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OLLAMA_THINK", raising=False)
+    assert Settings(_env_file=None).ollama_think is False
+    assert Settings(_env_file=None).ollama_model == "qwen3:8b"
+
+    monkeypatch.setenv("OLLAMA_THINK", "true")
+    assert Settings(_env_file=None).ollama_think is True
