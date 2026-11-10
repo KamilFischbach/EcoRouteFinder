@@ -1,10 +1,11 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import type { UserEvent } from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import { Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { API_URL } from '@/api/client';
-import { getTripDb } from '@/test/handlers';
+import { getComparisonDb, getTripDb, resetComparisonDb, savedComparison } from '@/test/handlers';
 import { server } from '@/test/server';
 import { renderWithProviders } from '@/test/utils';
 import type { ComparisonInput } from '@/types/comparison';
@@ -20,6 +21,17 @@ async function fillAndSubmit(user: UserEvent, destination = 'Kraków') {
   await user.click(screen.getByRole('button', { name: 'Compare' }));
 }
 
+/** Renders the compare routes like App does, so navigation to /compare/:id works. */
+function renderPage(route = '/compare') {
+  return renderWithProviders(
+    <Routes>
+      <Route path="/compare" element={<ComparePage />} />
+      <Route path="/compare/:id" element={<ComparePage />} />
+    </Routes>,
+    { route },
+  );
+}
+
 function card(name: string) {
   const list = screen.getByRole('list', { name: 'Transport options' });
   return within(list).getByRole('listitem', { name });
@@ -27,13 +39,13 @@ function card(name: string) {
 
 describe('ComparePage', () => {
   it('shows a start state before the first search', () => {
-    renderWithProviders(<ComparePage />);
+    renderPage();
 
     expect(screen.getByText('Where are you going?')).toBeInTheDocument();
   });
 
   it('validates the form before sending', async () => {
-    const { user } = renderWithProviders(<ComparePage />);
+    const { user } = renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Compare' }));
 
@@ -45,11 +57,11 @@ describe('ComparePage', () => {
     let sent: ComparisonInput | undefined;
     server.use(
       http.post(`${API_URL}/comparisons`, async ({ request }) => {
-        sent = (await request.json()) as ComparisonInput;
+        sent = (await request.clone().json()) as ComparisonInput;
         return undefined; // fall through to the default handler
       }),
     );
-    const { user } = renderWithProviders(<ComparePage />);
+    const { user } = renderPage();
 
     await fillAndSubmit(user);
 
@@ -79,11 +91,11 @@ describe('ComparePage', () => {
     let sent: ComparisonInput | undefined;
     server.use(
       http.post(`${API_URL}/comparisons`, async ({ request }) => {
-        sent = (await request.json()) as ComparisonInput;
+        sent = (await request.clone().json()) as ComparisonInput;
         return undefined;
       }),
     );
-    const { user } = renderWithProviders(<ComparePage />);
+    const { user } = renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Advanced' }));
     await user.type(screen.getByLabelText('Distance (km, optional)'), '12,5');
@@ -108,7 +120,7 @@ describe('ComparePage', () => {
         ),
       ),
     );
-    const { user } = renderWithProviders(<ComparePage />);
+    const { user } = renderPage();
 
     await fillAndSubmit(user, 'Atlantyda');
 
@@ -118,7 +130,7 @@ describe('ComparePage', () => {
   });
 
   it('saves a trip from a card', async () => {
-    const { user } = renderWithProviders(<ComparePage />);
+    const { user } = renderPage();
     await fillAndSubmit(user);
     await screen.findByRole('heading', { name: 'Warszawa → Kraków' });
 
@@ -136,5 +148,92 @@ describe('ComparePage', () => {
         mode: 'train',
       }),
     );
+  });
+});
+
+describe('ComparePage history', () => {
+  const history = () => screen.findByRole('list', { name: 'Recent comparisons' });
+
+  it('shows an empty state when there are no comparisons', async () => {
+    renderPage();
+
+    expect(await screen.findByText(/No comparisons yet/)).toBeInTheDocument();
+  });
+
+  it('lists recent comparisons with route, greenest mode and savings', async () => {
+    resetComparisonDb([
+      savedComparison(2, new Date(Date.now() - 2 * 3_600_000).toISOString(), 'Gdańsk', 'Sopot'),
+      savedComparison(1, '2026-10-01T10:00:00Z'),
+    ]);
+    renderPage();
+
+    const rows = within(await history()).getAllByRole('link');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Gdańsk → Sopot'),
+      expect.stringContaining('Warszawa → Kraków'),
+    ]);
+    expect(rows[0]).toHaveTextContent('2 h ago');
+    expect(rows[0]).toHaveTextContent('Train');
+    // Solo petrol car 48.37 kg - train 9.44 kg.
+    expect(rows[0]).toHaveTextContent('saves 38.9 kg CO₂');
+  });
+
+  it('opens a saved comparison from its snapshot', async () => {
+    resetComparisonDb([savedComparison(7, '2026-11-09T10:00:00Z', 'Łódź', 'Poznań')]);
+    let posted = false;
+    server.use(
+      http.post(`${API_URL}/comparisons`, () => {
+        posted = true;
+        return undefined;
+      }),
+    );
+    const { user } = renderPage();
+
+    await user.click(within(await history()).getByRole('link', { name: /Łódź → Poznań/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Łódź → Poznań' })).toBeInTheDocument();
+    expect(within(card('Train')).getByText('Greenest')).toBeInTheDocument();
+    expect(posted).toBe(false);
+  });
+
+  it('loads a saved comparison directly from its URL', async () => {
+    resetComparisonDb([savedComparison(7, '2026-11-09T10:00:00Z', 'Łódź', 'Poznań')]);
+    renderPage('/compare/7');
+
+    expect(await screen.findByRole('heading', { name: 'Łódź → Poznań' })).toBeInTheDocument();
+  });
+
+  it('shows not found for a missing comparison', async () => {
+    renderPage('/compare/99');
+
+    expect(await screen.findByText('Comparison not found')).toBeInTheDocument();
+  });
+
+  it('adds a new comparison to the history and opens it', async () => {
+    const { user } = renderPage();
+    await screen.findByText(/No comparisons yet/);
+
+    await fillAndSubmit(user);
+
+    expect(await screen.findByRole('heading', { name: 'Warszawa → Kraków' })).toBeInTheDocument();
+    expect(
+      within(await history()).getByRole('link', { name: /Warszawa → Kraków/ }),
+    ).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('deletes a comparison after confirmation', async () => {
+    resetComparisonDb([
+      savedComparison(2, '2026-11-09T10:00:00Z', 'Gdańsk', 'Sopot'),
+      savedComparison(1, '2026-11-08T10:00:00Z'),
+    ]);
+    const { user } = renderPage();
+    await history();
+
+    await user.click(screen.getByRole('button', { name: 'Delete comparison Gdańsk → Sopot' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete this comparison?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(screen.queryByText('Gdańsk → Sopot')).not.toBeInTheDocument());
+    expect(getComparisonDb().map((c) => c.id)).toEqual([1]);
   });
 });

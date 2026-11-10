@@ -6,6 +6,8 @@ export const FIELD_LIMITS = {
   maxDistanceKm: 40_000,
   minPassengers: 1,
   maxPassengers: 9,
+  // GET /comparisons: limit 1..100 (backend/app/api/v1/comparisons.py).
+  maxHistoryPageSize: 100,
 } as const;
 
 /** Accepts both "12.5" and "12,5". */

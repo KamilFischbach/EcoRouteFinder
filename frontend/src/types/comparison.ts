@@ -44,9 +44,28 @@ export interface ComparisonHighlights {
   cheapest: TransportMode | null;
 }
 
+/** A stored comparison: the snapshot taken when it was created. */
 export interface Comparison {
+  id: number;
+  created_at: string;
   route: ComparisonRoute;
   passengers: number;
   options: ComparisonOption[];
   highlights: ComparisonHighlights;
+  // TODO(ai): typed advice once the advisor exists.
+  advice: Record<string, unknown> | null;
+}
+
+/** Lightweight history row (GET /comparisons). */
+export interface ComparisonSummary {
+  id: number;
+  origin: string;
+  destination: string;
+  passengers: number;
+  distance_km: number;
+  created_at: string;
+  greenest_mode: TransportMode | null;
+  greenest_co2_kg: number | null;
+  solo_car_co2_kg: number;
+  recommended_mode: TransportMode | null;
 }

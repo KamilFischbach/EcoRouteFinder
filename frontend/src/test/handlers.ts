@@ -1,7 +1,12 @@
 import { http, HttpResponse } from 'msw';
 
 import { API_URL } from '@/api/client';
-import type { Comparison, ComparisonOption } from '@/types/comparison';
+import type {
+  Comparison,
+  ComparisonInput,
+  ComparisonOption,
+  ComparisonSummary,
+} from '@/types/comparison';
 import type { TransportMode, Trip, TripInput } from '@/types/trip';
 
 export const tripFixtures: Trip[] = [
@@ -46,6 +51,9 @@ export function getTripDb(): readonly Trip[] {
 
 // Shaped like a real Warszawa -> Kraków response for 2 passengers.
 export const comparisonFixture: Comparison = {
+  id: 1,
+  created_at: '2026-11-10T10:00:00Z',
+  advice: null,
   route: {
     origin: { name: 'Warszawa', lat: 52.2334, lon: 21.0711 },
     destination: { name: 'Kraków', lat: 50.0469, lon: 19.9972 },
@@ -86,8 +94,74 @@ function option(
   };
 }
 
+// Saved comparisons ("database" for the comparison handlers). Empty by default.
+let comparisons: Comparison[] = [];
+
+export function resetComparisonDb(initial: Comparison[] = []): void {
+  comparisons = structuredClone(initial);
+}
+
+export function getComparisonDb(): readonly Comparison[] {
+  return comparisons;
+}
+
+/** A saved comparison based on the fixture, with its own id, date and route names. */
+export function savedComparison(
+  id: number,
+  createdAt: string,
+  origin = 'Warszawa',
+  destination = 'Kraków',
+): Comparison {
+  return {
+    ...structuredClone(comparisonFixture),
+    id,
+    created_at: createdAt,
+    route: {
+      ...comparisonFixture.route,
+      origin: { ...comparisonFixture.route.origin, name: origin },
+      destination: { ...comparisonFixture.route.destination, name: destination },
+    },
+  };
+}
+
+function toSummary(c: Comparison): ComparisonSummary {
+  const greenest = c.options.find((o) => o.mode === c.highlights.greenest) ?? null;
+  const first = c.options[0];
+  return {
+    id: c.id,
+    origin: c.route.origin.name,
+    destination: c.route.destination.name,
+    passengers: c.passengers,
+    distance_km: c.route.distance_km,
+    created_at: c.created_at,
+    greenest_mode: greenest?.mode ?? null,
+    greenest_co2_kg: greenest?.co2_kg ?? null,
+    solo_car_co2_kg: first ? first.co2_kg + first.co2_saved_vs_car_kg : 0,
+    recommended_mode: null,
+  };
+}
+
 export const handlers = [
-  http.post(`${API_URL}/comparisons`, () => HttpResponse.json(comparisonFixture)),
+  http.post(`${API_URL}/comparisons`, async ({ request }) => {
+    const input = (await request.json()) as ComparisonInput;
+    const id = Math.max(0, ...comparisons.map((c) => c.id)) + 1;
+    const created = savedComparison(id, new Date().toISOString(), input.origin, input.destination);
+    comparisons = [created, ...comparisons];
+    return HttpResponse.json(created, { status: 201 });
+  }),
+
+  http.get(`${API_URL}/comparisons`, () => HttpResponse.json(comparisons.map(toSummary))),
+
+  http.get(`${API_URL}/comparisons/:id`, ({ params }) => {
+    const found = comparisons.find((c) => c.id === Number(params.id));
+    return found ? HttpResponse.json(found) : notFound(params.id);
+  }),
+
+  http.delete(`${API_URL}/comparisons/:id`, ({ params }) => {
+    if (!comparisons.some((c) => c.id === Number(params.id))) return notFound(params.id);
+    comparisons = comparisons.filter((c) => c.id !== Number(params.id));
+    return new HttpResponse(null, { status: 204 });
+  }),
 
   http.get(`${API_URL}/trips`, ({ request }) => {
     const mode = new URL(request.url).searchParams.get('mode');

@@ -25,14 +25,17 @@ export function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<TripsPage />} />
-        <Route
-          path="compare"
-          element={
-            <Suspense fallback={<PageFallback />}>
-              <ComparePage />
-            </Suspense>
-          }
-        />
+        {['compare', 'compare/:id'].map((path) => (
+          <Route
+            key={path}
+            path={path}
+            element={
+              <Suspense fallback={<PageFallback />}>
+                <ComparePage />
+              </Suspense>
+            }
+          />
+        ))}
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
