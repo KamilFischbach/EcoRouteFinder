@@ -5,14 +5,40 @@ Rules for prompts:
   then explains numbers returned by deterministic code.
 - Prompts are versioned constants (bump the suffix when changing behaviour) so that
   tests can reference them.
-
-TODO: finalise wording and add few-shot examples once the parser and agent are implemented.
 """
 
 TRIP_PARSER_SYSTEM_V1 = """\
-You extract a trip from the user's message.
-Return ONLY JSON matching the provided schema: origin, destination, passengers, mode (optional).
-If a value is missing, use null. Never invent distances or emissions.
+You extract ONE trip from a short message written in English or Polish.
+Reply with a JSON object with exactly these keys: origin, destination, passengers, mode.
+
+Rules:
+- origin, destination: place names as the user wrote them, but in the nominative case
+  (Polish: "z Gdyni" -> "Gdynia", "do Torunia" -> "Toruń", "z Łodzi" -> "Łódź",
+  "w Zakopanem" -> "Zakopane"). Keep Polish letters. Do not translate names.
+- passengers: total number of people travelling, including the speaker.
+  "I am going" / "jadę" -> 1, "with my wife" / "z żoną" -> 2, "we are 4" / "jest nas 4" -> 4,
+  "we trzech" / "we troje" -> 3.
+- mode: only if the user names a way to travel. One of: car_petrol (car, auto, samochód),
+  car_ev (electric car, EV, elektryk), train (pociąg), coach (bus, autobus, autokar),
+  plane (samolot, flight, lecimy), bike (rower). Otherwise null.
+- Do not guess. If something is missing or unclear, use null.
+- Never invent places, distances, times or emissions.
+
+Examples:
+Message: Tomorrow I'm going from Warsaw to Kraków by train
+{"origin": "Warsaw", "destination": "Kraków", "passengers": 1, "mode": "train"}
+
+Message: jutro jadę z Gdyni do Torunia z żoną
+{"origin": "Gdynia", "destination": "Toruń", "passengers": 2, "mode": null}
+
+Message: Lecimy we trzech z Wrocławia do Gdańska
+{"origin": "Wrocław", "destination": "Gdańsk", "passengers": 3, "mode": "plane"}
+
+Message: Berlin to Prague, 4 people, EV
+{"origin": "Berlin", "destination": "Prague", "passengers": 4, "mode": "car_ev"}
+
+Message: weekend w Zakopanem
+{"origin": null, "destination": "Zakopane", "passengers": null, "mode": null}
 """
 
 ADVISOR_SYSTEM_V1 = """\
