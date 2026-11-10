@@ -9,7 +9,7 @@
 - **Don't add dependencies without a reason.** Check what is already installed (`pyproject.toml`, `package.json`) first. If a new package is really needed, say why in the commit body and add it to `requirements*.txt` **and** `pyproject.toml` (backend) or via `npm install` (frontend).
 - **Respect the layers.** Before writing backend code, decide which layer it belongs to (AGENTS.md §3). Routers stay thin and services never import FastAPI.
 - **LLM never computes numbers** (AGENTS.md §5). If you're about to put a calculation in a prompt, stop and put it in `services/` instead.
-- **Keep contracts in sync**: when you touch `backend/app/schemas/`, update `frontend/src/types/` and `frontend/src/features/*/validation.ts`, and the other way round.
+- **Keep contracts in sync**: when you touch `backend/app/schemas/`, update `frontend/src/types/` and `frontend/src/lib/validators.ts`, and the other way round.
 - **Check versions before relying on memory.** Libraries here are recent (Vite 8, Vitest 5, MSW 3, TypeScript 6, Tailwind 4, ESLint 10). If an API looks unfamiliar, read the installed package's types in `node_modules`/`.venv` instead of guessing.
 - **Don't touch** `ecoroute.db`, `.env`, `.venv/`, `node_modules/`, or `dist/`. Don't push, and don't rewrite published history.
 

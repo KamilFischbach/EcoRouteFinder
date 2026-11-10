@@ -4,34 +4,50 @@ Instructions for AI coding agents (and humans) working on **EcoRoute**. Read thi
 
 ## 1. What this project is
 
-EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips to a history (CRUD). Planned next: a comparison page, a dashboard with charts, and AI features running on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback.
+EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips to a history (CRUD). Planned next: a dashboard with charts, a map, and AI features running on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback.
 
-Status: the foundation is done (Trip CRUD from DB to UI, tests, CI). Emissions, routing, weather, AI, charts and the map are **skeletons with `TODO`s**. Do not treat them as implemented.
+Status:
+- **Implemented:** Trip CRUD with CO₂ per person, emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`), routing via Nominatim + OSRM with fallback (`services/routing.py`), `POST /api/v1/comparisons` (`services/comparison_service.py`), Compare page with chart.
+- **Skeletons with `TODO`s (not implemented):** `services/weather.py`, everything in `app/ai/`, the Dashboard page, the map. Do not treat them as implemented.
+
+**All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values compare against one person driving alone in a petrol car. Keep it that way.
+
+Services that an AI agent or MCP server will call later (`emissions`, `routing`, `comparison_service`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
 
 ## 2. Repository map
 
 ```
 backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
   app/main.py            create_app(): CORS, error handlers, routers. `app` = ASGI entrypoint
-  app/core/config.py     Settings (env vars / .env): DATABASE_URL, CORS_ORIGINS, OLLAMA_*, AI_ENABLED
-  app/core/errors.py     Domain errors (AppError, NotFoundError). No HTTP here
+  app/core/config.py     Settings (env vars / .env): DATABASE_URL, CORS_ORIGINS, OLLAMA_*, AI_ENABLED,
+                         GEOCODER_URL, ROUTING_URL, HTTP_TIMEOUT_S, HTTP_USER_AGENT
+  app/core/errors.py     Domain errors (NotFoundError, PlaceNotFoundError, RouteTooShortError,
+                         ExternalServiceError). No HTTP here
   app/db.py              engine, get_session (dependency), init_db (create tables at startup)
   app/models/            SQLModel table models (DB shape only)
-  app/schemas/           Pydantic DTOs: request/response contracts + validation (TripCreate/Update/Read)
+  app/schemas/           Pydantic DTOs: request/response contracts + validation (trip.py, comparison.py)
   app/repositories/      DB access. The ONLY layer that uses Session
-  app/services/          Business logic. emissions.py / routing.py / weather.py are TODO stubs
+  app/services/          Business logic:
+    transport_factors.py   Per-mode CO2/cost/speed/overhead/detour/limits, each value with its source
+    emissions.py           Pure per-person CO2, cost, duration, practicality (OptionEstimate)
+    routing.py             RouteProvider Protocol, OsmRouteProvider (Nominatim + OSRM), haversine fallback
+    comparison_service.py  Compares all modes for a route, picks highlights
+    trip_service.py        Trip use cases, fills co2_kg
+    weather.py             TODO stub
   app/ai/                llm_client.py (LLMClient Protocol), prompts.py, trip_parser.py, advisor_agent.py
-  app/api/deps.py        Dependency wiring: session -> repository -> service
-  app/api/error_handlers.py  Exception -> JSON error mapping
-  app/api/v1/            Routers: health.py, trips.py
-  tests/conftest.py      In-memory SQLite, get_session override, TestClient
+  app/api/deps.py        Dependency wiring: session -> repository -> service; one RouteProvider per process
+  app/api/error_handlers.py  Exception -> JSON error mapping (domain error -> status code table)
+  app/api/v1/            Routers: health.py, trips.py, comparisons.py
+  tests/conftest.py      In-memory SQLite, get_session + get_route_provider overrides, TestClient
+  tests/fakes.py         FakeRouteProvider / make_route: use these instead of the network
   tests/api/             HTTP-level tests      tests/unit/  service/pure-logic tests
 frontend/                Vite + React 19 + TypeScript (strict) + Tailwind 4
   src/api/               fetch client (apiFetch, ApiError), endpoint functions, error -> message
   src/components/        Shared, domain-agnostic UI (Button, Card, ConfirmDialog, Layout, ...)
   src/features/trips/    Trip feature: hooks (TanStack Query), form, validation, table
-  src/pages/             Route-level components: TripsPage, ComparePage, DashboardPage (placeholders)
-  src/lib/               Small helpers: cn, format, styles
+  src/features/compare/  Compare feature: useCompareMutation, form, validation, OptionCard, Co2Chart
+  src/pages/             Route-level components: TripsPage, ComparePage (lazy-loaded), DashboardPage (placeholder)
+  src/lib/               Small helpers: cn, format, styles, validators (shared field rules)
   src/types/             Shared TS types mirroring backend schemas
   src/test/              Vitest setup, MSW server + handlers, render helpers
 .github/workflows/ci.yml Backend + frontend jobs (lint, format, types, tests, build)
@@ -52,7 +68,7 @@ Request flow: **router → service → repository → DB**. Each layer only call
 
 More rules:
 - **Errors**: services raise `NotFoundError` (or a new `AppError` subclass in `core/errors.py`). Map new error types to status codes in `_DOMAIN_STATUS` in `api/error_handlers.py`. Every error response has the shape `{"error": {"code", "message", "details"}}`. Never return a different shape. Error codes are always `UPPER_SNAKE_CASE` (`NOT_FOUND`, `VALIDATION_ERROR`, `UNKNOWN_PLACE`, `SERVICE_UNAVAILABLE`).
-- **Validation** lives in `schemas/` (Pydantic `Field`/`StringConstraints`). Frontend limits in `src/features/trips/validation.ts` must stay in sync. Change both or neither.
+- **Validation** lives in `schemas/` (Pydantic `Field`/`StringConstraints`). Frontend limits live in `src/lib/validators.ts` (`FIELD_LIMITS`, shared by the trip and compare forms) and must stay in sync. Change both or neither.
 - **Config** only via `get_settings()`. No `os.environ` reads elsewhere and no hard-coded URLs or secrets.
 - **Time**: store UTC (`models.trip.utc_now`). `TripRead` re-attaches UTC because SQLite drops tzinfo.
 - **New endpoint checklist**: DTOs in `schemas/` → repository method → service method → router in `api/v1/` → register in `api/v1/__init__.py` → API test + unit test.
@@ -111,7 +127,8 @@ More rules:
 ## 8. Tests
 
 Every new piece of logic ships with tests in the same commit:
-- **Backend**: an API test for each endpoint status path (success, 404, 422, ...) in `tests/api/`, and unit tests for service and pure logic in `tests/unit/`. Use the `client`/`session` fixtures from `conftest.py` (in-memory SQLite). Never touch `ecoroute.db` or the network in tests.
+- **Backend**: an API test for each endpoint status path (success, 404, 422, ...) in `tests/api/`, and unit tests for service and pure logic in `tests/unit/`. Use the `client`/`session` fixtures from `conftest.py` (in-memory SQLite). Never touch `ecoroute.db` or the network in tests: API tests get a `FakeRouteProvider` automatically (fixture `route_provider`), and HTTP clients are tested with `httpx.MockTransport`.
+- **Factors**: when you change a number in `transport_factors.py`, update its source comment and the README table, and fix the hand-computed expectations in the tests.
 - **Frontend**: React Testing Library + `user-event`, querying by role or label. Mock HTTP only with MSW (`src/test/handlers.ts`, override per test with `server.use`). Don't mock hooks or `fetch` directly. MSW 3 option name: `onUnhandledFrame` (not `onUnhandledRequest`).
 - AI code: test with a fake `LLMClient`, covering both the LLM path and the fallback path.
 - Bug fix = a failing test first, then the fix.
