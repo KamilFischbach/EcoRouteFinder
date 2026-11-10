@@ -4,15 +4,17 @@ Instructions for AI coding agents (and humans) working on **EcoRoute**. Read thi
 
 ## 1. What this project is
 
-EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. Planned next: a dashboard with charts, a map, an MCP server on top of `ai/tools.py`.
+EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. A dashboard shows the footprint over time, CO₂ saved and eco-points. Planned next: a map, an MCP server on top of `ai/tools.py` and `StatsService`.
 
 Status:
-- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history and EcoAdvisor card; trip assistant (free text → Auto: compare + advice in one go / Manual: fill the form, with parsed preferences); AI status badge.
-- **Not implemented yet:** the Dashboard page and the map. Do not treat them as implemented.
+- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history and EcoAdvisor card; trip assistant (free text → Auto: compare + advice in one go / Manual: fill the form, with parsed preferences); AI status badge; trip travel date (`travelled_on`); dashboard statistics (`services/stats.py` + `eco_points.py`, `GET /stats`), demo seed (`python -m app.seed`) and the Dashboard page.
+- **Not implemented yet:** the map and the MCP server. Do not treat them as implemented.
 
 **All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values (`co2_saved_vs_petrol_car_kg`, `petrol_car_co2_kg`) compare against **the same group going together by petrol car**, per person, so the petrol car itself saves 0. Keep it that way. Numbers shown to users or the LLM as text are formatted only by `services/formatting.py` (same rounding as `frontend/src/lib/format.ts`).
 
-Services that AI tools (and later an MCP server) call (`emissions`, `routing`, `weather`, `ComparisonService.compute`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
+**Statistics are computed only by `services/stats.py`** (`aggregate_stats`: a pure function of trips + range + today, rounding in one place) and `services/eco_points.py` (points and level thresholds). The UI never recalculates them: when a screen needs a new number (a difference, points left), add it to `StatsRead` instead.
+
+Services that AI tools (and later an MCP server) call (`emissions`, `routing`, `weather`, `ComparisonService.compute`, `aggregate_stats`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
 
 ## 2. Repository map
 
@@ -39,6 +41,10 @@ backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
     formatting.py          Ready-to-quote number strings ("5 h 54 min", "152 PLN", "15.7 kg")
     advice_service.py      Runs the advisor for a saved comparison and stores the answer
     trip_service.py        Trip use cases, fills co2_kg
+    stats.py               Pure aggregate_stats (footprint, net savings vs petrol car, timeline, by mode,
+                           previous period, best trip) + StatsService (one repository query)
+    eco_points.py          Eco-points per trip (never negative) and level thresholds
+  app/seed.py            `python -m app.seed [--force]`: demo trips; refuses a non-empty DB without --force
   app/ai/
     llm_client.py          LLMClient Protocol, OllamaClient (httpx), LLMError, message helpers
     prompts.py             ALL prompts (versioned constants)
@@ -48,7 +54,7 @@ backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
     advice_facts.py        Advisor reasons built from data; checks the LLM summary's claims and numbers
   app/api/deps.py        Dependency wiring; one RouteProvider / LLMClient / WeatherProvider per process
   app/api/error_handlers.py  Exception -> JSON error mapping (domain error -> status code table)
-  app/api/v1/            Routers: health, trips, comparisons (+ /{id}/advice), trip_drafts
+  app/api/v1/            Routers: health, trips, comparisons (+ /{id}/advice), trip_drafts, stats
   tests/conftest.py      In-memory SQLite; overrides for session, route provider, LLM (`llm` slot), weather
   tests/fakes.py         FakeRouteProvider, FakeLLMClient (scripted replies), FakeWeather: never use the network
   tests/api/             HTTP-level tests      tests/unit/  service/pure-logic tests
@@ -62,7 +68,9 @@ frontend/                Vite + React 19 + TypeScript (strict) + Tailwind 4
                          useTripAssistant (runs draft -> comparison -> advice), assistantMachine
                          (pure reducer + step statuses), assistantMode (localStorage)
   src/features/ai/       AI status badge + useHealthQuery
-  src/pages/             Route-level components: TripsPage, ComparePage (lazy-loaded), DashboardPage (placeholder)
+  src/features/dashboard/ statsKeys + useStatsQuery, RangeSwitch (?range=), KpiTiles, LevelCard,
+                         TimelineChart, ModeChart (sr-only tables), BestTripCard, summary.ts (pure text rules)
+  src/pages/             Route-level components: TripsPage, ComparePage and DashboardPage (both lazy-loaded)
   src/lib/               Small helpers: cn, format, styles, validators (shared field rules)
   src/types/             Shared TS types mirroring backend schemas
   src/test/              Vitest setup, MSW server + handlers, render helpers
@@ -96,7 +104,7 @@ More rules:
 - **Data fetching only through hooks** in `features/<feature>/useXxx.ts` built on TanStack Query. Components never call `fetch` or `apiFetch` directly.
 - **Multi-step AI flows are orchestrated in a hook, not in components and not in a new backend endpoint.** `useTripAssistant` chains the existing mutations (draft → comparison → advice); the step logic is a pure reducer in a `.ts` file with unit tests. Results render as soon as the comparison exists; advice arrives on its own, and its failure never hides the results.
 - HTTP goes through `src/api/client.ts` (`apiFetch`). Base URL comes from `VITE_API_URL`. Endpoint functions live in `src/api/<resource>.ts`.
-- Query keys come from a key factory (`tripKeys`). Mutations invalidate `tripKeys.all` instead of hand-editing the cache.
+- Query keys come from a key factory (`tripKeys`, `statsKeys`). Mutations invalidate `tripKeys.all` (and trip mutations also `statsKeys.all`) instead of hand-editing the cache.
 - Every data view handles **loading, empty and error** states (`Spinner`, `EmptyState`, `ErrorState`). User-facing error text comes from `getErrorMessage()`.
 - Pure logic (validation, mapping, formatting) goes in `.ts` files next to the feature and gets unit tests. `.tsx` files export components only (enforced by `react-refresh/only-export-components`).
 - Styling: Tailwind utility classes only, no CSS modules or inline `style`. Palette: `emerald`/`lime` accents on `stone`/white. Mobile-first: make it work at 375px, then add `sm:`/`md:`/`lg:`.

@@ -4,20 +4,20 @@
 
 **EcoRoute compares ways to travel the same route by time, cost and carbon footprint.** Enter where you start, where you're going and how many people are travelling. EcoRoute compares a petrol car, an electric car, train, coach, plane and bike, and lets you keep a history of your trips.
 
-> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, and the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM) work end to end. The dashboard and map are next.
+> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, and the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM) and the dashboard work end to end. The map is next.
 
 A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and act as an advisor. The core rule: **the LLM never calculates emissions.** Deterministic code does the maths; the model only picks tools and explains the results. Every AI feature has a rule-based fallback, so the app works without a model.
 
 ## Features
 
-- [x] Trip history: add, edit, delete (with confirmation), filter by transport mode, CO₂ per person for each trip
+- [x] Trip history: add, edit, delete (with confirmation), filter by transport mode, travel date, CO₂ per person for each trip
 - [x] Mode comparison: time, cost and kg CO₂ per person for six modes, with Greenest / Fastest / Cheapest picks, a CO₂ chart and one-click "Save trip"
 - [x] Real routes from OpenStreetMap (Nominatim + OSRM) with an offline fallback estimate
 - [x] Comparison history: every comparison is saved as a snapshot, linkable at `/compare/:id`
 - [x] Trip assistant: describe the trip once (English or Polish); **Auto** compares and asks EcoAdvisor in one go, **Manual** only fills in the form
 - [x] EcoAdvisor: a tool-calling agent that recommends one option, checks the weather and explains why, taking your preferences (luggage, skis, comfort, budget, speed) into account, with a rule-based fallback
 - [x] REST API with validation and a consistent error format
-- [ ] Dashboard: CO₂ over time, kg saved, eco-points _(coming soon)_
+- [x] Dashboard: CO₂ footprint over time, CO₂ saved vs petrol car, CO₂ by mode, eco-points and levels, best trip
 
 ## Creative twist
 
@@ -47,9 +47,10 @@ backend/
     models/            # SQLModel tables
     schemas/           # request/response DTOs + validation
     repositories/      # database access
-    services/          # business logic: trips, comparisons + snapshots, emissions + factors, routing, weather, advice
+    services/          # business logic: trips, comparisons + snapshots, emissions + factors, routing, weather, advice, stats + eco-points
     ai/                # LLM client (Ollama), prompts, tool registry, trip parser + rules, advisor agent
-    api/v1/            # routers: health, trips, comparisons (+ advice), trip-drafts
+    api/v1/            # routers: health, trips, comparisons (+ advice), trip-drafts, stats
+    seed.py            # `python -m app.seed`: demo trips for the dashboard
   tests/               # api/ and unit/ tests (in-memory SQLite)
 frontend/
   src/
@@ -59,8 +60,9 @@ frontend/
     features/assistant/ # trip assistant: text box, Auto/Manual switch, step progress, useTripAssistant hook
     features/compare/  # compare form, results, CO2 chart, history, EcoAdvisor card
     features/ai/       # AI status badge (polls /health)
+    features/dashboard/ # stats query, range switch, KPI tiles, level, charts, best trip, summary text
     lib/               # formatting, shared validators, helpers
-    pages/             # Trips, Compare, Dashboard (placeholder)
+    pages/             # Trips, Compare, Dashboard
     types/             # shared TypeScript types
     test/              # Vitest setup, MSW handlers
 .github/workflows/ci.yml
@@ -87,7 +89,8 @@ uvicorn app.main:app --reload
 
 - Interactive API docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/api/v1/health
-- The SQLite file `backend/ecoroute.db` is created on first start.
+- The SQLite file `backend/ecoroute.db` is created on first start. An older file is upgraded in place on start; you never need to delete it.
+- Demo data for the dashboard (optional, see [Dashboard](#dashboard)): `python -m app.seed`.
 
 > If PowerShell blocks `Activate.ps1`, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or skip activation and call the venv directly: `.\.venv\Scripts\python -m uvicorn app.main:app --reload`.
 
@@ -143,8 +146,8 @@ Ollama runs in the background on `http://localhost:11434`. Restart nothing: the 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/v1/health` | `{status, ai_available, ai_model}` |
-| `GET` | `/api/v1/trips?mode=` | List trips, newest first, optional mode filter |
-| `POST` | `/api/v1/trips` | Create a trip → `201` |
+| `GET` | `/api/v1/trips?mode=` | List trips, latest travel date first, optional mode filter |
+| `POST` | `/api/v1/trips` | Create a trip → `201`. `travelled_on` (`YYYY-MM-DD`) defaults to today and cannot be in the future (`422`) |
 | `GET` | `/api/v1/trips/{id}` | Get one trip → `404` if missing |
 | `PUT` | `/api/v1/trips/{id}` | Update the fields sent in the body |
 | `DELETE` | `/api/v1/trips/{id}` | Delete → `204` |
@@ -153,6 +156,7 @@ Ollama runs in the background on `http://localhost:11434`. Restart nothing: the 
 | `GET` | `/api/v1/comparisons/{id}` | A saved comparison (snapshot + advice) → `404` if missing |
 | `DELETE` | `/api/v1/comparisons/{id}` | Delete → `204` |
 | `POST` | `/api/v1/comparisons/{id}/advice` | Ask EcoAdvisor, optional `{preferences}` (max 300 chars). Always `200` (LLM or rules); stored with the comparison |
+| `GET` | `/api/v1/stats?range=90d` | Dashboard statistics for `30d`, `90d` (default), `12m` or `all` → see [Dashboard](#dashboard). Unknown range → `422` |
 | `POST` | `/api/v1/trip-drafts` | `{text}` (1-500 chars) → form pre-fill `{origin, destination, passengers, mode, preferences, missing_fields, parsed_by}`. Stores nothing |
 
 Errors always use one shape: `{"error": {"code": "NOT_FOUND", "message": "...", "details": ...}}`. Codes are upper case: `NOT_FOUND`, `VALIDATION_ERROR`, `UNKNOWN_PLACE` (422), `ROUTE_TOO_SHORT` (422), `SERVICE_UNAVAILABLE` (503), `INTERNAL_ERROR`.
@@ -200,6 +204,29 @@ Public Nominatim and OSRM servers are fine for a demo but not for heavy traffic.
 Every comparison is saved (`comparison` table) and gets a linkable URL, `/compare/:id`. The result is stored as a **versioned JSON snapshot** of the options and highlights, because emission factors may change later and the history should show what you saw at the time. Opening a saved comparison reads the snapshot; nothing is recomputed. A few values (greenest mode and its CO₂, the petrol-car baseline, EcoAdvisor's pick) are also stored as plain columns, so the "Recent comparisons" list stays cheap. EcoAdvisor's latest answer is stored with its comparison.
 
 The table is created by `init_db()` at startup. Snapshot version 2 renamed the savings field and the `solo_car_co2_kg` column (now `petrol_car_co2_kg`, the same group by petrol car). An older `ecoroute.db` is **upgraded in place on the next start**, keeping trips, history and advice: the old petrol-car option already holds the group's CO₂ per person, so the new savings are recomputed exactly.
+
+## Dashboard
+
+`/dashboard` shows how your carbon footprint changes over time and how much CO₂ you saved by choosing low-carbon transport. The data comes from your **saved trips**, grouped by their **travel date** (`travelled_on`). All numbers come from `GET /api/v1/stats` and are computed by deterministic code in `services/stats.py` (a pure function, ready to be exposed as an MCP tool). No LLM is involved, and the UI does not recalculate anything.
+
+**Definitions**
+
+- **CO₂ footprint** = the sum of `co2_kg` of the trips in the range. `co2_kg` is **per person** (a car's emissions are split between its passengers). Old trips without a value are computed on the fly.
+- **CO₂ saved vs petrol car** (per trip) = CO₂ of the **same group going by petrol car** over the same distance, per person, minus the trip's CO₂. It is computed on the fly, never stored. A flight usually saves a negative amount, and the total is **net**: when it is below zero, the dashboard says e.g. "12 kg more than going by petrol car".
+- **Km not driven** = the distance of trips that were not made by petrol car.
+- **Eco-points** = 10 points per kg of CO₂ saved on a trip, rounded, and **never below 0 per trip** (no penalties). Points count the trips in the selected range.
+- **Levels** (`services/eco_points.py`): Seedling 0, Sprout 250, Sapling 1,500, Tree 4,000, Forest 8,000 points. A threshold is reached when hit exactly.
+- **Ranges:** 30 and 90 days end today and are drawn by week (Monday to Sunday); 12 months start on the 1st of the month 11 months ago and are drawn by month, like All time. Empty weeks and months are shown as zero. Footprint and savings are compared with the **previous period of the same length** (not for All time). The **best trip** is the one that saved the most (none if no trip saved anything).
+
+**Simplifications:** a trip's distance is the distance of the chosen mode (e.g. the rail distance for a train trip), and the petrol-car baseline uses that same distance rather than the road distance. Footprint is per person, so a group trip counts once, not once per traveller. The range ends on the UTC date, so a trip dated "today" just after midnight east of UTC moves the range end one day forward.
+
+**Demo data.** To see the dashboard without entering trips by hand, add 30 demo trips between Polish cities from the last four months (mostly trains, some cars and bikes, two flights). Their CO₂ is computed by the same `TripService`. The command refuses to run when the database already has trips; `--force` adds the demo trips next to them and never deletes anything.
+
+```powershell
+cd backend
+.\.venv\Scripts\python -m app.seed           # bash: python -m app.seed
+.\.venv\Scripts\python -m app.seed --force   # add even if trips exist
+```
 
 ## Trip assistant
 
