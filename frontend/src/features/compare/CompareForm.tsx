@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/Button';
 import { FormField } from '@/components/FormField';
+import { cn } from '@/lib/cn';
 import { FIELD_LIMITS, hasErrors } from '@/lib/validators';
 import { inputClass } from '@/lib/styles';
 import type { ComparisonInput } from '@/types/comparison';
@@ -9,20 +10,29 @@ import type { ComparisonInput } from '@/types/comparison';
 import {
   EMPTY_COMPARE_FORM,
   toComparisonInput,
+  toPreferences,
   validateCompare,
   type CompareFormErrors,
   type CompareFormValues,
 } from './validation';
 
+type FocusableField = 'origin' | 'destination' | 'passengers';
+
 interface CompareFormProps {
-  /** Pre-fill (e.g. from "Describe your trip"). Change the component `key` to apply new values. */
+  /** Pre-fill (e.g. from the trip assistant). Change the component `key` to apply new values. */
   initialValues?: CompareFormValues;
+  /** Focus this field on mount, e.g. the first one the assistant couldn't find. */
+  focusField?: FocusableField | undefined;
+  /** Play a short highlight on mount so the user notices the form was filled in. */
+  highlight?: boolean;
   isSubmitting?: boolean;
-  onSubmit: (input: ComparisonInput) => void;
+  onSubmit: (input: ComparisonInput, preferences: string | undefined) => void;
 }
 
 export function CompareForm({
   initialValues = EMPTY_COMPARE_FORM,
+  focusField,
+  highlight = false,
   isSubmitting = false,
   onSubmit,
 }: CompareFormProps) {
@@ -30,6 +40,11 @@ export function CompareForm({
   const [errors, setErrors] = useState<CompareFormErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (focusField) formRef.current?.querySelector<HTMLElement>(`#compare-${focusField}`)?.focus();
+  }, [focusField]);
 
   function update<K extends keyof CompareFormValues>(field: K, value: CompareFormValues[K]) {
     const next = { ...values, [field]: value };
@@ -43,16 +58,17 @@ export function CompareForm({
 
   return (
     <form
+      ref={formRef}
       noValidate
       aria-label="Compare form"
-      className="space-y-5"
+      className={cn('space-y-5 rounded-xl', highlight && 'animate-form-filled')}
       onSubmit={(event) => {
         event.preventDefault();
         setSubmitted(true);
         const found = validateCompare(values);
         setErrors(found);
         if (found.distanceKm) setShowAdvanced(true);
-        if (!hasErrors(found)) onSubmit(toComparisonInput(values));
+        if (!hasErrors(found)) onSubmit(toComparisonInput(values), toPreferences(values));
       }}
     >
       <FormField label="From" htmlFor="compare-origin" error={errors.origin}>
@@ -95,6 +111,25 @@ export function CompareForm({
           aria-invalid={Boolean(errors.passengers)}
           aria-describedby={describedBy('passengers')}
           onChange={(event) => update('passengers', event.target.value)}
+        />
+      </FormField>
+
+      <FormField
+        label="What matters to you?"
+        htmlFor="compare-preferences"
+        error={errors.preferences}
+        hint="Optional. EcoAdvisor takes it into account, e.g. “skis and comfort”, “cheapest”."
+      >
+        <textarea
+          id="compare-preferences"
+          rows={2}
+          className={cn(inputClass(Boolean(errors.preferences)), 'resize-none')}
+          placeholder="e.g. We have ski equipment and comfort matters"
+          maxLength={FIELD_LIMITS.preferencesMaxLength}
+          value={values.preferences}
+          aria-invalid={Boolean(errors.preferences)}
+          aria-describedby={describedBy('preferences')}
+          onChange={(event) => update('preferences', event.target.value)}
         />
       </FormField>
 

@@ -1,5 +1,6 @@
 import {
   compactErrors,
+  FIELD_LIMITS,
   parseDecimal,
   validateDistance,
   validatePassengers,
@@ -14,6 +15,8 @@ export interface CompareFormValues {
   passengers: string;
   /** Optional; empty means "let the backend look up the route". */
   distanceKm: string;
+  /** Optional "What matters to you?" text, sent to EcoAdvisor after the comparison. */
+  preferences: string;
 }
 
 export type CompareFormErrors = Partial<Record<keyof CompareFormValues, string>>;
@@ -23,6 +26,7 @@ export const EMPTY_COMPARE_FORM: CompareFormValues = {
   destination: '',
   passengers: '1',
   distanceKm: '',
+  preferences: '',
 };
 
 export function validateCompare(values: CompareFormValues): CompareFormErrors {
@@ -31,6 +35,10 @@ export function validateCompare(values: CompareFormValues): CompareFormErrors {
     destination: validatePlace(values.destination, 'Enter a destination.'),
     passengers: validatePassengers(values.passengers),
     distanceKm: values.distanceKm.trim() ? validateDistance(values.distanceKm) : undefined,
+    preferences:
+      values.preferences.trim().length > FIELD_LIMITS.preferencesMaxLength
+        ? `Maximum ${FIELD_LIMITS.preferencesMaxLength} characters.`
+        : undefined,
   });
 }
 
@@ -41,7 +49,13 @@ export function fromTripDraft(draft: TripDraft): CompareFormValues {
     destination: draft.destination ?? '',
     passengers: String(draft.passengers ?? 1),
     distanceKm: '',
+    preferences: draft.preferences ?? '',
   };
+}
+
+/** Preferences for EcoAdvisor, or undefined when the field is empty. */
+export function toPreferences(values: CompareFormValues): string | undefined {
+  return values.preferences.trim() || undefined;
 }
 
 export function toComparisonInput(values: CompareFormValues): ComparisonInput {

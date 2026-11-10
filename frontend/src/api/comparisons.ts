@@ -2,6 +2,9 @@ import type { Advice, Comparison, ComparisonInput, ComparisonSummary } from '@/t
 
 import { apiFetch } from './client';
 
+/** A local model with a few tool calls can be slow; after this the UI offers "Try again". */
+export const ADVICE_TIMEOUT_MS = 120_000;
+
 export const comparisonsApi = {
   create: (input: ComparisonInput) =>
     apiFetch<Comparison>('/comparisons', { method: 'POST', body: input }),
@@ -13,5 +16,6 @@ export const comparisonsApi = {
     apiFetch<Advice>(`/comparisons/${id}/advice`, {
       method: 'POST',
       body: preferences ? { preferences } : {},
+      timeoutMs: ADVICE_TIMEOUT_MS,
     }),
 };

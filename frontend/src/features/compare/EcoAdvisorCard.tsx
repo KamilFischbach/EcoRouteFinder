@@ -4,14 +4,13 @@ import { getErrorMessage } from '@/api/errors';
 import { AiIcon } from '@/components/AiIcon';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { Spinner } from '@/components/Spinner';
+import type { AdvisorController } from '@/features/assistant/useTripAssistant';
 import { ModeBadge } from '@/features/trips/ModeBadge';
 import { cn } from '@/lib/cn';
 import { inputClass } from '@/lib/styles';
 import { FIELD_LIMITS } from '@/lib/validators';
 import type { Advice, Comparison } from '@/types/comparison';
 
-import { useAdviceMutation } from './useCompare';
 import { WeatherIcon } from './WeatherIcon';
 
 function SourceBadge({ advice }: { advice: Advice }) {
@@ -37,7 +36,7 @@ function ToolTrace({ advice }: { advice: Advice }) {
         <p>
           {advice.used_llm
             ? `Answer written by the local model ${advice.model}. All numbers come from EcoRoute's calculator.`
-            : 'The AI model was unavailable or its answer failed our checks, so a rule-based advisor picked the greenest practical option.'}
+            : 'The AI model was unavailable or its answer failed our checks, so a rule-based advisor picked the option.'}
         </p>
         {advice.preferences && <p>Your preferences: “{advice.preferences}”</p>}
         {advice.tool_trace.length === 0 ? (
@@ -68,7 +67,7 @@ function AdviceView({ advice }: { advice: Advice }) {
         <ModeBadge mode={advice.recommended_mode} />
         <SourceBadge advice={advice} />
       </div>
-      <p className="mt-3 text-stone-900">{advice.summary}</p>
+      <p className="mt-3 text-base text-stone-900">{advice.summary}</p>
       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-stone-700">
         {advice.reasons.map((reason) => (
           <li key={reason}>{reason}</li>
@@ -87,14 +86,40 @@ function AdviceView({ advice }: { advice: Advice }) {
   );
 }
 
-export function EcoAdvisorCard({ comparison }: { comparison: Comparison }) {
-  const [preferences, setPreferences] = useState('');
-  const advise = useAdviceMutation(comparison.id);
-  const inputId = useId();
+function ThinkingSkeleton() {
+  return (
+    <div className="mt-4" role="status">
+      <p className="text-sm text-stone-600">
+        EcoAdvisor is thinking… (local model, can take ~20 s)
+      </p>
+      <div aria-hidden="true" className="mt-3 animate-pulse space-y-2.5">
+        <div className="h-5 w-32 rounded-full bg-stone-200" />
+        <div className="h-4 w-full rounded bg-stone-100" />
+        <div className="h-4 w-5/6 rounded bg-stone-100" />
+        <div className="h-4 w-2/3 rounded bg-stone-100" />
+      </div>
+    </div>
+  );
+}
+
+interface EcoAdvisorCardProps {
+  comparison: Comparison;
+  advisor: AdvisorController;
+}
+
+export function EcoAdvisorCard({ comparison, advisor }: EcoAdvisorCardProps) {
   const advice = comparison.advice;
+  // Follows the latest request until the user edits it.
+  const [edited, setEdited] = useState<string | null>(null);
+  const preferences = edited ?? advisor.preferences ?? advice?.preferences ?? '';
+  const inputId = useId();
+  const ask = () => advisor.ask(preferences.trim() || undefined);
 
   return (
-    <Card aria-label="EcoAdvisor" className="px-5 py-5 sm:px-6">
+    <Card
+      aria-label="EcoAdvisor"
+      className={cn('px-5 py-5 sm:px-6', (advice || advisor.isPending) && 'ring-2 ring-violet-100')}
+    >
       <div className="flex items-center gap-2">
         <span className="flex size-8 items-center justify-center rounded-lg bg-violet-50 ring-1 ring-violet-100">
           <AiIcon />
@@ -105,11 +130,25 @@ export function EcoAdvisorCard({ comparison }: { comparison: Comparison }) {
         </div>
       </div>
 
+      {advisor.isPending && <ThinkingSkeleton />}
+      {advisor.error && !advisor.isPending && (
+        <div className="mt-4 flex flex-col gap-2 rounded-xl bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p role="alert" className="text-sm text-red-700">
+            EcoAdvisor couldn't answer: {getErrorMessage(advisor.error)} The comparison below is
+            still valid.
+          </p>
+          <Button variant="secondary" size="sm" onClick={ask}>
+            Try again
+          </Button>
+        </div>
+      )}
+      {advice && !advisor.isPending && <AdviceView advice={advice} />}
+
       <form
         className="mt-4 flex flex-col gap-2 sm:flex-row"
         onSubmit={(event) => {
           event.preventDefault();
-          advise.mutate(preferences.trim() || undefined);
+          ask();
         }}
       >
         <label htmlFor={inputId} className="sr-only">
@@ -121,26 +160,17 @@ export function EcoAdvisorCard({ comparison }: { comparison: Comparison }) {
           placeholder="Optional: “I have luggage”, “cheapest please”"
           maxLength={FIELD_LIMITS.preferencesMaxLength}
           value={preferences}
-          onChange={(event) => setPreferences(event.target.value)}
+          onChange={(event) => setEdited(event.target.value)}
         />
-        <Button type="submit" isLoading={advise.isPending}>
-          {!advise.isPending && <AiIcon className="invert" />}
+        <Button
+          type="submit"
+          variant={advice ? 'secondary' : 'primary'}
+          isLoading={advisor.isPending}
+        >
+          {!advisor.isPending && <AiIcon className={advice ? undefined : 'invert'} />}
           {advice ? 'Ask again' : 'Ask EcoAdvisor'}
         </Button>
       </form>
-
-      {advise.isPending && (
-        <div role="status" className="mt-4 flex items-center gap-2 text-sm text-stone-600">
-          <Spinner size="sm" />
-          EcoAdvisor is thinking… a local model can take 10–20 seconds.
-        </div>
-      )}
-      {advise.isError && !advise.isPending && (
-        <p role="alert" className="mt-4 text-sm text-red-600">
-          {getErrorMessage(advise.error)}
-        </p>
-      )}
-      {advice && !advise.isPending && <AdviceView advice={advice} />}
     </Card>
   );
 }

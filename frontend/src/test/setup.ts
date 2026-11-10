@@ -27,6 +27,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  window.localStorage.clear(); // e.g. the remembered trip assistant mode
   server.resetHandlers();
 });
 afterAll(() => server.close());

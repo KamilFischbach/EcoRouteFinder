@@ -41,13 +41,18 @@ export function useComparisonQuery(id: number | undefined) {
   });
 }
 
+export interface AdviceRequest {
+  comparisonId: number;
+  preferences?: string | undefined;
+}
+
 /** Asks EcoAdvisor and stores the answer in the cached comparison (and its history row). */
-export function useAdviceMutation(comparisonId: number) {
+export function useAdviceMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (preferences: string | undefined) =>
+    mutationFn: ({ comparisonId, preferences }: AdviceRequest) =>
       comparisonsApi.advise(comparisonId, preferences),
-    onSuccess: (advice) => {
+    onSuccess: (advice, { comparisonId }) => {
       queryClient.setQueryData<Comparison>(comparisonKeys.detail(comparisonId), (current) =>
         current ? { ...current, advice } : current,
       );

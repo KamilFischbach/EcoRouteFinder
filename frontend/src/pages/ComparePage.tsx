@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 
 import { ApiError } from '@/api/client';
 import { getErrorMessage } from '@/api/errors';
@@ -8,12 +8,12 @@ import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { PageHeader } from '@/components/PageHeader';
 import { Spinner } from '@/components/Spinner';
+import { TripAssistant } from '@/features/assistant/TripAssistant';
+import { useTripAssistant } from '@/features/assistant/useTripAssistant';
 import { CompareForm } from '@/features/compare/CompareForm';
 import { ComparisonResults } from '@/features/compare/ComparisonResults';
-import { DescribeTrip } from '@/features/compare/DescribeTrip';
-import { EMPTY_COMPARE_FORM, fromTripDraft } from '@/features/compare/validation';
 import { RecentComparisons } from '@/features/compare/RecentComparisons';
-import { useCompareMutation, useComparisonQuery } from '@/features/compare/useCompare';
+import { useComparisonQuery } from '@/features/compare/useCompare';
 
 function parseId(raw: string | undefined): number | undefined {
   const id = Number(raw);
@@ -31,12 +31,10 @@ function LoadingCard({ label }: { label: string }) {
 export function ComparePage() {
   const params = useParams<{ id: string }>();
   const id = parseId(params.id);
-  const navigate = useNavigate();
-  const compare = useCompareMutation();
+  const assistant = useTripAssistant();
+  const { compare, form } = assistant;
   const saved = useComparisonQuery(id);
   const { reset } = compare;
-  // Bumping the key remounts the form with values parsed from "Describe your trip".
-  const [prefill, setPrefill] = useState({ key: 0, values: EMPTY_COMPARE_FORM });
 
   // Opening another saved comparison clears a previous search error or result.
   useEffect(() => {
@@ -66,7 +64,13 @@ export function ComparePage() {
       </Card>
     );
   } else if (saved.data) {
-    results = <ComparisonResults key={saved.data.id} comparison={saved.data} />;
+    results = (
+      <ComparisonResults
+        key={saved.data.id}
+        comparison={saved.data}
+        advisor={assistant.advisorFor(saved.data.id)}
+      />
+    );
   } else if (id !== undefined) {
     results = <LoadingCard label="Loading comparison…" />;
   } else {
@@ -86,25 +90,27 @@ export function ComparePage() {
         title="Compare transport modes"
         description="See the time, cost and CO₂ emissions of the same route for different ways to travel."
       />
+      <div className="mb-6">
+        <TripAssistant
+          state={assistant.state}
+          mode={assistant.mode}
+          onModeChange={assistant.setMode}
+          onSubmit={assistant.describe}
+          draftError={assistant.draftError}
+        />
+      </div>
       {/* Mobile: form, results, history. Desktop: form + history on the left, results on the right. */}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
         <Card>
           <CardHeader title="Route" description="Where from, where to, and how many of you." />
-          <div className="space-y-5 px-5 py-5 sm:px-6">
-            <DescribeTrip
-              onDraft={(draft) =>
-                setPrefill((current) => ({ key: current.key + 1, values: fromTripDraft(draft) }))
-              }
-            />
+          <div className="px-5 py-5 sm:px-6">
             <CompareForm
-              key={prefill.key}
-              initialValues={prefill.values}
+              key={form.key}
+              initialValues={form.values}
+              focusField={form.focusField}
+              highlight={form.highlight}
               isSubmitting={compare.isPending}
-              onSubmit={(input) =>
-                compare.mutate(input, {
-                  onSuccess: (comparison) => navigate(`/compare/${comparison.id}`),
-                })
-              }
+              onSubmit={assistant.compareFromForm}
             />
           </div>
         </Card>

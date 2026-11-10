@@ -11,10 +11,12 @@ import {
 
 import { formatCo2 } from '@/lib/format';
 import type { ComparisonOption } from '@/types/comparison';
-import { MODE_LABELS } from '@/types/trip';
+import { MODE_LABELS, type TransportMode } from '@/types/trip';
 
 // One series -> one hue (validated with the dataviz palette checker against the white surface).
 const BAR_COLOR = '#059669'; // emerald-600
+// EcoAdvisor's pick, the app's AI accent. Validated against emerald-600: CVD ΔE 25, contrast >= 3:1.
+const PICK_BAR_COLOR = '#7c3aed'; // violet-600
 const MUTED_BAR_COLOR = '#d6d3d1'; // stone-300, impractical options (also labelled in the axis)
 const AXIS_TEXT = '#78716c'; // stone-500
 const GRID = '#e7e5e4'; // stone-200
@@ -23,6 +25,7 @@ interface ChartRow {
   label: string;
   co2: number;
   practical: boolean;
+  pick: boolean;
   note: string | null;
 }
 
@@ -39,25 +42,49 @@ function ChartTooltip({
     <div className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs shadow-md">
       <p className="font-medium text-stone-900">{row.label}</p>
       <p className="text-stone-600">{formatCo2(row.co2)} CO₂ per person</p>
+      {row.pick && <p className="mt-0.5 font-medium text-violet-700">EcoAdvisor pick</p>}
       {!row.practical && row.note && <p className="mt-0.5 text-stone-500">{row.note}</p>}
     </div>
   );
 }
 
-export function Co2Chart({ options }: { options: ComparisonOption[] }) {
-  const rows: ChartRow[] = options.map((option) => ({
-    label: option.practical ? MODE_LABELS[option.mode] : `${MODE_LABELS[option.mode]} (n/a)`,
-    co2: option.co2_kg,
-    practical: option.practical,
-    note: option.note,
-  }));
+function rowLabel(option: ComparisonOption, pick: boolean): string {
+  const label = MODE_LABELS[option.mode];
+  if (!option.practical) return `${label} (n/a)`;
+  return pick ? `${label} (pick)` : label;
+}
+
+interface Co2ChartProps {
+  options: ComparisonOption[];
+  /** EcoAdvisor's recommendation: drawn in violet and labelled "(pick)". */
+  recommended?: TransportMode | null;
+}
+
+function barColor(row: ChartRow): string {
+  if (!row.practical) return MUTED_BAR_COLOR;
+  return row.pick ? PICK_BAR_COLOR : BAR_COLOR;
+}
+
+export function Co2Chart({ options, recommended = null }: Co2ChartProps) {
+  const rows: ChartRow[] = options.map((option) => {
+    const pick = option.mode === recommended;
+    return {
+      label: rowLabel(option, pick),
+      co2: option.co2_kg,
+      practical: option.practical,
+      pick,
+      note: option.note,
+    };
+  });
 
   return (
     <figure>
       <figcaption className="mb-3 text-sm font-medium text-stone-700">
         CO₂ per person (kg)
         <span className="block text-xs font-normal text-stone-500">
-          Grey bars are not practical for this distance. Exact values are in the cards below.
+          Grey bars are not practical for this distance.
+          {recommended && ' The violet bar is EcoAdvisor’s pick.'} Exact values are in the cards
+          below.
         </span>
       </figcaption>
       <div className="h-64 w-full" data-testid="co2-chart">
@@ -86,7 +113,7 @@ export function Co2Chart({ options }: { options: ComparisonOption[] }) {
             <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f5f5f4' }} />
             <Bar dataKey="co2" barSize={16} radius={[0, 4, 4, 0]} isAnimationActive={false}>
               {rows.map((row) => (
-                <Cell key={row.label} fill={row.practical ? BAR_COLOR : MUTED_BAR_COLOR} />
+                <Cell key={row.label} fill={barColor(row)} />
               ))}
             </Bar>
           </BarChart>

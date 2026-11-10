@@ -14,6 +14,8 @@ export function getErrorMessage(error: unknown): string {
     switch (error.code) {
       case 'NETWORK_ERROR':
         return "Can't reach the API. Check that the backend is running on port 8000.";
+      case 'TIMEOUT':
+        return 'This is taking too long. Please try again.';
       case 'VALIDATION_ERROR':
         return 'The server rejected the data. Please check the form fields.';
       case 'NOT_FOUND':
