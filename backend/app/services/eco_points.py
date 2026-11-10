@@ -38,6 +38,7 @@ class LevelProgress:
     next_level_name: str | None
     """None on the last level."""
     next_level_at: int | None
+    points_to_next: int | None
     progress: float
     """Share of the way from this level's threshold to the next one, 0-1 (1 on the last level)."""
 
@@ -52,8 +53,15 @@ def level_for(points: int) -> LevelProgress:
     index = max(i for i, level in enumerate(LEVELS) if points >= level.min_points)
     current = LEVELS[index]
     if index == len(LEVELS) - 1:
-        return LevelProgress(current.name, points, None, None, 1.0)
+        return LevelProgress(current.name, points, None, None, None, 1.0)
     upcoming = LEVELS[index + 1]
     span = upcoming.min_points - current.min_points
     progress = (points - current.min_points) / span
-    return LevelProgress(current.name, points, upcoming.name, upcoming.min_points, progress)
+    return LevelProgress(
+        current.name,
+        points,
+        upcoming.name,
+        upcoming.min_points,
+        upcoming.min_points - points,
+        progress,
+    )

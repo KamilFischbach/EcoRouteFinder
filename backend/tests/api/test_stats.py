@@ -31,6 +31,8 @@ def test_stats_default_to_90_days(client: TestClient, make_trip_payload: MakePay
         "from",
         "to",
         "totals",
+        "co2_change_kg",
+        "saved_change_kg",
         "co2_change_pct",
         "saved_change_pct",
     }
@@ -69,6 +71,7 @@ def test_stats_on_empty_database_are_zeros(client: TestClient) -> None:
         "points": 0,
         "next_level_name": "Sprout",
         "next_level_at": 250,
+        "points_to_next": 250,
         "progress": 0.0,
     }
     assert len(body["timeline"]) >= 5

@@ -28,6 +28,7 @@ class LevelRead(_FromAttributes):
     points: int
     next_level_name: str | None
     next_level_at: int | None
+    points_to_next: int | None
     progress: float = Field(ge=0, le=1)
 
 
@@ -49,6 +50,8 @@ class PreviousPeriodRead(_FromAttributes):
     date_from: date = Field(serialization_alias="from")
     date_to: date = Field(serialization_alias="to")
     totals: StatsTotalsRead
+    co2_change_kg: float
+    saved_change_kg: float
     co2_change_pct: float | None
     saved_change_pct: float | None
 

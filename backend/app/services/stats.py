@@ -99,8 +99,11 @@ class PreviousPeriod:
     date_from: date
     date_to: date
     totals: StatsTotals
+    co2_change_kg: float
+    """Current minus previous footprint (negative = less CO2 now)."""
+    saved_change_kg: float
     co2_change_pct: float | None
-    """Footprint change vs this period in %, None when the previous footprint was 0."""
+    """Footprint change vs the previous period in %, None when the previous footprint was 0."""
     saved_change_pct: float | None
 
 
@@ -291,6 +294,8 @@ def _previous(
         date_from=previous_from,
         date_to=previous_to,
         totals=totals,
+        co2_change_kg=_round(current.co2_kg - totals.co2_kg),
+        saved_change_kg=_round(current.co2_saved_kg - totals.co2_saved_kg),
         co2_change_pct=_change_pct(current.co2_kg, totals.co2_kg),
         saved_change_pct=_change_pct(current.co2_saved_kg, totals.co2_saved_kg),
     )
@@ -328,6 +333,7 @@ def _rounded_level(level: LevelProgress) -> LevelProgress:
         level.points,
         level.next_level_name,
         level.next_level_at,
+        level.points_to_next,
         _round(level.progress, 3),
     )
 

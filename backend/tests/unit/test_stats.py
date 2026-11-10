@@ -160,6 +160,7 @@ def test_previous_period_has_the_same_length_and_compares_totals() -> None:
     assert (period.date_from, period.date_to) == (date(2026, 9, 12), date(2026, 10, 11))
     assert period.totals.trips == 1 and period.totals.co2_kg == 10.0
     assert period.co2_change_pct == 50.0
+    assert period.co2_change_kg == 5.0
 
 
 def test_fetch_start_covers_the_previous_period() -> None:
@@ -264,6 +265,8 @@ def test_levels_reach_a_threshold_exactly_on_it(
 
 def test_last_level_has_no_next_threshold() -> None:
     assert level_for(20_000).next_level_at is None
+    assert level_for(20_000).points_to_next is None
+    assert level_for(1000).points_to_next == 500
 
 
 # --- service ------------------------------------------------------------------------------------
