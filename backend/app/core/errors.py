@@ -28,3 +28,36 @@ class NotFoundError(AppError):
             f"{resource} with id {resource_id} not found",
             details={"resource": resource, "id": resource_id},
         )
+
+
+class PlaceNotFoundError(AppError):
+    """A place name could not be geocoded."""
+
+    code = "UNKNOWN_PLACE"
+
+    def __init__(self, place: str) -> None:
+        super().__init__(f"Could not find a place called '{place}'", details={"place": place})
+
+
+class RouteTooShortError(AppError):
+    """Origin and destination are (practically) the same point."""
+
+    code = "ROUTE_TOO_SHORT"
+
+    def __init__(self, distance_km: float) -> None:
+        super().__init__(
+            "Origin and destination are too close to compare travel options",
+            details={"distance_km": round(distance_km, 3)},
+        )
+
+
+class ExternalServiceError(AppError):
+    """A required external service (e.g. the geocoder) is unavailable."""
+
+    code = "SERVICE_UNAVAILABLE"
+
+    def __init__(self, service: str) -> None:
+        super().__init__(
+            f"The {service} service is unavailable. Please try again later.",
+            details={"service": service},
+        )

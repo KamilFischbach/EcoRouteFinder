@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b"
     ai_enabled: bool = False
+    # Routing: OpenStreetMap Nominatim (geocoding) + OSRM (driving routes).
+    geocoder_url: str = "https://nominatim.openstreetmap.org"
+    routing_url: str = "https://router.project-osrm.org"
+    http_timeout_s: float = 8.0
+    # Nominatim's usage policy requires an identifying User-Agent.
+    http_user_agent: str = "EcoRoute/0.1 (+https://github.com/KamilFischbach/EcoRouteFinder)"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

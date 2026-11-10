@@ -13,12 +13,21 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.errors import AppError, NotFoundError
+from app.core.errors import (
+    AppError,
+    ExternalServiceError,
+    NotFoundError,
+    PlaceNotFoundError,
+    RouteTooShortError,
+)
 
 logger = logging.getLogger(__name__)
 
 _DOMAIN_STATUS: dict[type[AppError], int] = {
     NotFoundError: status.HTTP_404_NOT_FOUND,
+    PlaceNotFoundError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    RouteTooShortError: status.HTTP_422_UNPROCESSABLE_CONTENT,
+    ExternalServiceError: status.HTTP_503_SERVICE_UNAVAILABLE,
 }
 
 
