@@ -68,7 +68,7 @@ def test_stats_on_empty_database_are_zeros(client: TestClient) -> None:
         "name": "Seedling",
         "points": 0,
         "next_level_name": "Sprout",
-        "next_level_at": 100,
+        "next_level_at": 250,
         "progress": 0.0,
     }
     assert len(body["timeline"]) >= 5

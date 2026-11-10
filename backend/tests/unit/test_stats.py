@@ -246,11 +246,11 @@ def test_trip_points_are_ten_per_kg_and_never_negative() -> None:
     ("points", "name", "next_name", "progress"),
     [
         (0, "Seedling", "Sprout", 0.0),
-        (99, "Seedling", "Sprout", 0.99),
-        (100, "Sprout", "Sapling", 0.0),
-        (1000, "Sapling", "Tree", 0.5),
-        (3999, "Tree", "Forest", 0.9996),
-        (4000, "Forest", None, 1.0),
+        (249, "Seedling", "Sprout", 0.996),
+        (250, "Sprout", "Sapling", 0.0),
+        (2750, "Sapling", "Tree", 0.5),
+        (7999, "Tree", "Forest", 0.99975),
+        (8000, "Forest", None, 1.0),
     ],
 )
 def test_levels_reach_a_threshold_exactly_on_it(
@@ -263,7 +263,7 @@ def test_levels_reach_a_threshold_exactly_on_it(
 
 
 def test_last_level_has_no_next_threshold() -> None:
-    assert level_for(10_000).next_level_at is None
+    assert level_for(20_000).next_level_at is None
 
 
 # --- service ------------------------------------------------------------------------------------

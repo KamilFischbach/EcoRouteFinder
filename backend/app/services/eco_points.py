@@ -5,8 +5,8 @@ Rules (keep README "Dashboard" in sync):
   with the same group going by petrol car, rounded to a whole number.
 - A trip that saved nothing or emitted more than the petrol car (e.g. a flight) earns 0.
   There are no penalties: points only grow.
-- Levels are fixed thresholds of total points (`LEVELS`). The demo data (`python -m app.seed`)
-  lands in the middle level.
+- Levels are fixed thresholds of the points earned in the chosen range (`LEVELS`). The demo
+  data (`python -m app.seed`, about 2,400 points in 90 days) lands in the middle level, Sapling.
 
 Pure functions, no I/O, so they can back an MCP tool later.
 """
@@ -24,10 +24,10 @@ class Level:
 
 LEVELS: tuple[Level, ...] = (
     Level("Seedling", 0),
-    Level("Sprout", 100),
-    Level("Sapling", 500),
-    Level("Tree", 1500),
-    Level("Forest", 4000),
+    Level("Sprout", 250),
+    Level("Sapling", 1500),
+    Level("Tree", 4000),
+    Level("Forest", 8000),
 )
 
 
