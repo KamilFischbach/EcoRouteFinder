@@ -195,7 +195,7 @@ function StepProgress({ state }: { state: AssistantState }) {
               {STEP_LABELS[step]}
               {status === 'skipped' && <span className="text-stone-400"> (skipped)</span>}
             </span>
-            {step === 'understand' && status === 'done' && (
+            {(step === 'understand' || step === 'advise') && status === 'done' && (
               <ParsedByBadge parsedBy={state.parsedBy} />
             )}
           </li>
