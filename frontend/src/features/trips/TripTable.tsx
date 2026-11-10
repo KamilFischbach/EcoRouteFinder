@@ -18,17 +18,17 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
-        <caption className="sr-only">Zapisane trasy</caption>
+        <caption className="sr-only">Saved trips</caption>
         <thead className="bg-stone-50/80">
           <tr>
             <th scope="col" className={cn(TH, 'sm:pl-6')}>
-              Trasa
+              Route
             </th>
             <th scope="col" className={cn(TH, 'hidden md:table-cell')}>
-              Dystans
+              Distance
             </th>
             <th scope="col" className={cn(TH, 'hidden md:table-cell')}>
-              Osoby
+              Passengers
             </th>
             <th scope="col" className={cn(TH, 'hidden sm:table-cell')}>
               Transport
@@ -37,7 +37,7 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
               CO₂
             </th>
             <th scope="col" className={cn(TH, 'text-right sm:pr-6')}>
-              <span className="sr-only">Akcje</span>
+              <span className="sr-only">Actions</span>
             </th>
           </tr>
         </thead>
@@ -58,7 +58,8 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                     {formatDate(trip.created_at)}
                     <span className="md:hidden">
                       {' · '}
-                      {formatDistance(trip.distance_km)} · {trip.passengers} os.
+                      {formatDistance(trip.distance_km)} · {trip.passengers}{' '}
+                      {trip.passengers === 1 ? 'passenger' : 'passengers'}
                     </span>
                   </div>
                   {trip.note && (
@@ -81,7 +82,7 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                 </td>
                 <td
                   className="hidden px-4 py-3.5 text-stone-400 tabular-nums lg:table-cell"
-                  title={trip.co2_kg === null ? 'Obliczenia CO₂ pojawią się wkrótce' : undefined}
+                  title={trip.co2_kg === null ? 'CO₂ calculation coming soon' : undefined}
                 >
                   {formatCo2(trip.co2_kg)}
                 </td>
@@ -90,19 +91,19 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                     <Button
                       variant="ghost"
                       size="sm"
-                      aria-label={`Edytuj trasę ${route}`}
+                      aria-label={`Edit trip ${route}`}
                       onClick={() => onEdit(trip)}
                     >
-                      Edytuj
+                      Edit
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                      aria-label={`Usuń trasę ${route}`}
+                      aria-label={`Delete trip ${route}`}
                       onClick={() => onDelete(trip)}
                     >
-                      Usuń
+                      Delete
                     </Button>
                   </div>
                 </td>

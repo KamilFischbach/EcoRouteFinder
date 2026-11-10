@@ -18,17 +18,9 @@ interface TripHistoryProps {
   onDelete: (trip: Trip) => void;
 }
 
-function pluralizeTrips(count: number): string {
-  if (count === 1) return 'trasa';
-  const lastDigit = count % 10;
-  const lastTwoDigits = count % 100;
-  const isFew = lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 12 || lastTwoDigits > 14);
-  return isFew ? 'trasy' : 'tras';
-}
-
 function summary(trips: Trip[]): string {
   const totalKm = trips.reduce((sum, trip) => sum + trip.distance_km, 0);
-  return `${trips.length} ${pluralizeTrips(trips.length)} · ${formatDistance(totalKm)}`;
+  return `${trips.length} ${trips.length === 1 ? 'trip' : 'trips'} · ${formatDistance(totalKm)}`;
 }
 
 export function TripHistory({ editingId, onEdit, onDelete }: TripHistoryProps) {
@@ -38,7 +30,7 @@ export function TripHistory({ editingId, onEdit, onDelete }: TripHistoryProps) {
   const filter = (
     <>
       <label htmlFor="trip-mode-filter" className="sr-only">
-        Filtruj po środku transportu
+        Filter by transport mode
       </label>
       <select
         id="trip-mode-filter"
@@ -46,7 +38,7 @@ export function TripHistory({ editingId, onEdit, onDelete }: TripHistoryProps) {
         value={mode}
         onChange={(event) => setMode(event.target.value as TransportMode | '')}
       >
-        <option value="">Wszystkie środki</option>
+        <option value="">All modes</option>
         {TRANSPORT_MODES.map((value) => (
           <option key={value} value={value}>
             {MODE_LABELS[value]}
@@ -60,7 +52,7 @@ export function TripHistory({ editingId, onEdit, onDelete }: TripHistoryProps) {
   if (isPending) {
     content = (
       <div className="flex justify-center py-14 text-emerald-600">
-        <Spinner label="Ładowanie tras…" />
+        <Spinner label="Loading trips…" />
       </div>
     );
   } else if (isError) {
@@ -68,13 +60,13 @@ export function TripHistory({ editingId, onEdit, onDelete }: TripHistoryProps) {
   } else if (trips.length === 0) {
     content = mode ? (
       <EmptyState
-        title="Brak tras dla tego środka transportu"
-        description="Zmień filtr albo dodaj nową trasę."
+        title="No trips for this transport mode"
+        description="Change the filter or add a new trip."
       />
     ) : (
       <EmptyState
-        title="Nie masz jeszcze zapisanych tras"
-        description="Dodaj pierwszą trasę w formularzu obok. Zapisane trasy pojawią się tutaj."
+        title="You have no saved trips yet"
+        description="Add your first trip using the form. Saved trips will show up here."
       />
     );
   } else {
@@ -84,8 +76,8 @@ export function TripHistory({ editingId, onEdit, onDelete }: TripHistoryProps) {
   return (
     <Card>
       <CardHeader
-        title="Historia tras"
-        description={trips && trips.length > 0 ? summary(trips) : 'Twoje zapisane podróże'}
+        title="Trip history"
+        description={trips && trips.length > 0 ? summary(trips) : 'Your saved journeys'}
         actions={filter}
       />
       {content}

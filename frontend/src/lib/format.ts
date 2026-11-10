@@ -1,5 +1,5 @@
-const numberFormat = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 1 });
-const dateFormat = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'medium' });
+const numberFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
+const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 
 export function formatDistance(km: number): string {
   return `${numberFormat.format(km)} km`;

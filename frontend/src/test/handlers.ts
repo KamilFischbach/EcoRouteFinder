@@ -12,7 +12,7 @@ export const tripFixtures: Trip[] = [
     passengers: 2,
     mode: 'train',
     co2_kg: null,
-    note: 'Weekend nad morzem',
+    note: 'Weekend by the sea',
     created_at: '2026-11-08T10:00:00Z',
     updated_at: '2026-11-08T10:00:00Z',
   },

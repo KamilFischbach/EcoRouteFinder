@@ -7,16 +7,16 @@ export function ComparePage() {
   return (
     <>
       <PageHeader
-        title="Porównaj środki transportu"
-        description="Zobacz czas, koszt i emisję CO₂ tej samej trasy dla różnych środków transportu."
+        title="Compare transport modes"
+        description="See the time, cost and CO₂ emissions of the same route for different ways to travel."
       />
       <ComingSoon
-        title="Porównywarka jest w budowie"
+        title="The comparison tool is under construction"
         items={[
-          'Porównanie auta, auta elektrycznego, pociągu, autokaru, samolotu i roweru',
-          'Czas, koszt i kg CO₂ liczone deterministycznie po stronie serwera',
-          'Wpisywanie trasy zwykłym tekstem (lokalny model AI przez Ollamę)',
-          'Doradca AI, który wyjaśnia wynik i proponuje najlepszą opcję',
+          'Compare petrol car, electric car, train, coach, plane and bike',
+          'Time, cost and kg CO₂ calculated deterministically on the server',
+          'Describe a trip in plain text (local AI model via Ollama)',
+          'An AI advisor that explains the results and suggests the best option',
         ]}
       />
     </>

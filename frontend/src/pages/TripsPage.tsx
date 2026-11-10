@@ -61,25 +61,25 @@ export function TripsPage() {
   return (
     <>
       <PageHeader
-        title="Twoje trasy"
-        description="Zapisuj podróże i sprawdzaj, jak wybór środka transportu wpływa na ślad węglowy."
+        title="Your trips"
+        description="Save your journeys and see how your choice of transport affects your carbon footprint."
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
         <Card className="lg:sticky lg:top-24">
           <CardHeader
-            title={editing ? 'Edytuj trasę' : 'Nowa trasa'}
+            title={editing ? 'Edit trip' : 'New trip'}
             description={
               editing
                 ? `${editing.origin} → ${editing.destination}`
-                : 'Podaj skąd, dokąd i czym jedziesz.'
+                : 'Where from, where to, and how you travel.'
             }
           />
           <div className="px-5 py-5 sm:px-6">
             <TripForm
               key={formKey}
               initialValues={editing ? toFormValues(editing) : undefined}
-              submitLabel={editing ? 'Zapisz zmiany' : 'Dodaj trasę'}
+              submitLabel={editing ? 'Save changes' : 'Add trip'}
               isSubmitting={activeMutation.isPending}
               serverError={activeMutation.isError ? getErrorMessage(activeMutation.error) : null}
               onSubmit={handleSubmit}
@@ -93,13 +93,13 @@ export function TripsPage() {
 
       <ConfirmDialog
         open={toDelete !== null}
-        title="Usunąć trasę?"
+        title="Delete this trip?"
         description={
           toDelete
-            ? `Trasa ${toDelete.origin} → ${toDelete.destination} zostanie trwale usunięta z historii.`
+            ? `The trip ${toDelete.origin} → ${toDelete.destination} will be permanently removed from your history.`
             : ''
         }
-        confirmLabel="Usuń"
+        confirmLabel="Delete"
         isPending={deleteTrip.isPending}
         error={deleteTrip.isError ? getErrorMessage(deleteTrip.error) : null}
         onConfirm={handleConfirmDelete}

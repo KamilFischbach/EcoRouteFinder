@@ -5,12 +5,12 @@ export const TRANSPORT_MODES = ['car_petrol', 'car_ev', 'train', 'coach', 'plane
 export type TransportMode = (typeof TRANSPORT_MODES)[number];
 
 export const MODE_LABELS: Record<TransportMode, string> = {
-  car_petrol: 'Auto (benzyna)',
-  car_ev: 'Auto elektryczne',
-  train: 'Pociąg',
-  coach: 'Autokar',
-  plane: 'Samolot',
-  bike: 'Rower',
+  car_petrol: 'Petrol car',
+  car_ev: 'Electric car',
+  train: 'Train',
+  coach: 'Coach',
+  plane: 'Plane',
+  bike: 'Bike',
 };
 
 export interface Trip {

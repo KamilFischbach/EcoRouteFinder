@@ -39,16 +39,17 @@ function validatePlace(value: string, emptyMessage: string): string | undefined 
   const trimmed = value.trim();
   if (!trimmed) return emptyMessage;
   if (trimmed.length > TRIP_LIMITS.placeMaxLength) {
-    return `Maksymalnie ${TRIP_LIMITS.placeMaxLength} znaków.`;
+    return `Maximum ${TRIP_LIMITS.placeMaxLength} characters.`;
   }
   return undefined;
 }
 
 function validateDistance(raw: string): string | undefined {
-  if (!raw.trim()) return 'Podaj dystans.';
+  if (!raw.trim()) return 'Enter a distance.';
   const distance = parseDecimal(raw);
-  if (!Number.isFinite(distance) || distance <= 0) return 'Dystans musi być liczbą większą od 0.';
-  if (distance > TRIP_LIMITS.maxDistanceKm) return 'Dystans nie może przekraczać 40 000 km.';
+  if (!Number.isFinite(distance) || distance <= 0)
+    return 'Distance must be a number greater than 0.';
+  if (distance > TRIP_LIMITS.maxDistanceKm) return 'Distance cannot exceed 40,000 km.';
   return undefined;
 }
 
@@ -61,21 +62,21 @@ function validatePassengers(raw: string): string | undefined {
     passengers < minPassengers ||
     passengers > maxPassengers
   ) {
-    return `Liczba osób musi być liczbą całkowitą od ${minPassengers} do ${maxPassengers}.`;
+    return `Passengers must be a whole number from ${minPassengers} to ${maxPassengers}.`;
   }
   return undefined;
 }
 
 export function validateTrip(values: TripFormValues): TripFormErrors {
   const errors: TripFormErrors = {
-    origin: validatePlace(values.origin, 'Podaj miejsce startu.'),
-    destination: validatePlace(values.destination, 'Podaj cel podróży.'),
+    origin: validatePlace(values.origin, 'Enter a starting point.'),
+    destination: validatePlace(values.destination, 'Enter a destination.'),
     distanceKm: validateDistance(values.distanceKm),
     passengers: validatePassengers(values.passengers),
-    mode: values.mode ? undefined : 'Wybierz środek transportu.',
+    mode: values.mode ? undefined : 'Choose a transport mode.',
     note:
       values.note.trim().length > TRIP_LIMITS.noteMaxLength
-        ? `Notatka może mieć maksymalnie ${TRIP_LIMITS.noteMaxLength} znaków.`
+        ? `Note can be at most ${TRIP_LIMITS.noteMaxLength} characters.`
         : undefined,
   };
   return Object.fromEntries(

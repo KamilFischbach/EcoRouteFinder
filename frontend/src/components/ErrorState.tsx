@@ -6,11 +6,7 @@ interface ErrorStateProps {
   onRetry?: () => void;
 }
 
-export function ErrorState({
-  title = 'Nie udało się wczytać danych',
-  message,
-  onRetry,
-}: ErrorStateProps) {
+export function ErrorState({ title = 'Could not load data', message, onRetry }: ErrorStateProps) {
   return (
     <div role="alert" className="flex flex-col items-center px-6 py-14 text-center">
       <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-red-50 text-red-600">
@@ -32,7 +28,7 @@ export function ErrorState({
       <p className="mt-1 max-w-sm text-sm text-stone-500">{message}</p>
       {onRetry && (
         <Button variant="secondary" size="sm" className="mt-5" onClick={onRetry}>
-          Spróbuj ponownie
+          Try again
         </Button>
       )}
     </div>

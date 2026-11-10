@@ -3,8 +3,8 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { cn } from '@/lib/cn';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Trasy', end: true },
-  { to: '/compare', label: 'Porównaj', end: false },
+  { to: '/', label: 'Trips', end: true },
+  { to: '/compare', label: 'Compare', end: false },
   { to: '/dashboard', label: 'Dashboard', end: false },
 ] as const;
 
@@ -37,7 +37,7 @@ export function Layout() {
             </span>
             <span className="hidden sm:inline">EcoRoute</span>
           </NavLink>
-          <nav aria-label="Główna nawigacja">
+          <nav aria-label="Main navigation">
             <ul className="flex items-center gap-1 rounded-xl bg-stone-100/80 p-1">
               {NAV_ITEMS.map((item) => (
                 <li key={item.to}>
@@ -67,7 +67,7 @@ export function Layout() {
       </main>
 
       <footer className="border-t border-stone-200/70 py-6 text-center text-xs text-stone-500">
-        EcoRoute · wybieraj trasy z mniejszym śladem węglowym
+        EcoRoute · choose routes with a smaller carbon footprint
       </footer>
     </div>
   );

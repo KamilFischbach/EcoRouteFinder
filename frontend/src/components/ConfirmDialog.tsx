@@ -19,7 +19,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = 'Anuluj',
+  cancelLabel = 'Cancel',
   isPending = false,
   error,
   onConfirm,

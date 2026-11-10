@@ -68,7 +68,7 @@ More rules:
 - Pure logic (validation, mapping, formatting) goes in `.ts` files next to the feature and gets unit tests. `.tsx` files export components only (enforced by `react-refresh/only-export-components`).
 - Styling: Tailwind utility classes only, no CSS modules or inline `style`. Palette: `emerald`/`lime` accents on `stone`/white. Mobile-first: make it work at 375px, then add `sm:`/`md:`/`lg:`.
 - Accessibility: every input has a `<label>`; errors are linked with `aria-invalid` and `aria-describedby`; icon-only buttons get `aria-label`. Tests query by role/label, so this is enforced.
-- UI copy is **Polish**. Code, comments and identifiers are **English**.
+- Everything is in **English**: UI copy, code, comments and identifiers.
 - `recharts` and `react-leaflet` are installed for the dashboard and map. Use them there; do not add other chart or map libraries.
 
 ## 5. AI rules (non-negotiable)

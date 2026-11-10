@@ -7,14 +7,14 @@ export function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
-        description="Twój ślad węglowy w czasie i to, ile CO₂ udało Ci się zaoszczędzić."
+        description="Your carbon footprint over time and how much CO₂ you have saved."
       />
       <ComingSoon
-        title="Wykresy pojawią się wkrótce"
+        title="Charts are coming soon"
         items={[
-          'Emisja CO₂ w czasie',
-          'Zaoszczędzone kg CO₂ w porównaniu z jazdą autem',
-          'Eko-punkty za wybór niskoemisyjnych środków transportu',
+          'CO₂ emissions over time',
+          'kg of CO₂ saved compared to driving',
+          'Eco-points for choosing low-emission transport',
         ]}
       />
     </>

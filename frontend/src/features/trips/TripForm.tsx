@@ -51,7 +51,7 @@ export function TripForm({
   return (
     <form
       noValidate
-      aria-label="Formularz trasy"
+      aria-label="Trip form"
       className="space-y-5"
       onSubmit={(event) => {
         event.preventDefault();
@@ -61,11 +61,11 @@ export function TripForm({
         if (!hasErrors(found)) onSubmit(toTripInput(values));
       }}
     >
-      <FormField label="Skąd" htmlFor="trip-origin" error={errors.origin}>
+      <FormField label="From" htmlFor="trip-origin" error={errors.origin}>
         <input
           id="trip-origin"
           className={inputClass(Boolean(errors.origin))}
-          placeholder="np. Warszawa"
+          placeholder="e.g. Warsaw"
           autoComplete="off"
           maxLength={TRIP_LIMITS.placeMaxLength}
           value={values.origin}
@@ -75,11 +75,11 @@ export function TripForm({
         />
       </FormField>
 
-      <FormField label="Dokąd" htmlFor="trip-destination" error={errors.destination}>
+      <FormField label="To" htmlFor="trip-destination" error={errors.destination}>
         <input
           id="trip-destination"
           className={inputClass(Boolean(errors.destination))}
-          placeholder="np. Gdańsk"
+          placeholder="e.g. Berlin"
           autoComplete="off"
           maxLength={TRIP_LIMITS.placeMaxLength}
           value={values.destination}
@@ -90,19 +90,19 @@ export function TripForm({
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Dystans (km)" htmlFor="trip-distanceKm" error={errors.distanceKm}>
+        <FormField label="Distance (km)" htmlFor="trip-distanceKm" error={errors.distanceKm}>
           <input
             id="trip-distanceKm"
             className={inputClass(Boolean(errors.distanceKm))}
             inputMode="decimal"
-            placeholder="np. 340"
+            placeholder="e.g. 340"
             value={values.distanceKm}
             aria-invalid={Boolean(errors.distanceKm)}
             aria-describedby={describedBy('distanceKm')}
             onChange={(event) => update('distanceKm', event.target.value)}
           />
         </FormField>
-        <FormField label="Liczba osób" htmlFor="trip-passengers" error={errors.passengers}>
+        <FormField label="Passengers" htmlFor="trip-passengers" error={errors.passengers}>
           <input
             id="trip-passengers"
             type="number"
@@ -119,7 +119,7 @@ export function TripForm({
       </div>
 
       <fieldset aria-describedby={describedBy('mode')}>
-        <legend className="mb-1.5 text-sm font-medium text-stone-700">Środek transportu</legend>
+        <legend className="mb-1.5 text-sm font-medium text-stone-700">Transport mode</legend>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {TRANSPORT_MODES.map((mode) => (
             <label
@@ -150,12 +150,12 @@ export function TripForm({
         )}
       </fieldset>
 
-      <FormField label="Notatka (opcjonalnie)" htmlFor="trip-note" error={errors.note}>
+      <FormField label="Note (optional)" htmlFor="trip-note" error={errors.note}>
         <textarea
           id="trip-note"
           rows={2}
           className={cn(inputClass(Boolean(errors.note)), 'resize-none')}
-          placeholder="np. wyjazd służbowy"
+          placeholder="e.g. business trip"
           value={values.note}
           aria-invalid={Boolean(errors.note)}
           aria-describedby={describedBy('note')}
@@ -175,7 +175,7 @@ export function TripForm({
         </Button>
         {onCancel && (
           <Button variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-            Anuluj
+            Cancel
           </Button>
         )}
       </div>
