@@ -45,7 +45,7 @@ from app.ai.llm_client import (
     tool_message,
     user_message,
 )
-from app.ai.prompts import ADVISOR_FINAL_V3, ADVISOR_SYSTEM_V4
+from app.ai.prompts import ADVISOR_FINAL_V4, ADVISOR_SYSTEM_V4
 from app.ai.tools import ToolRegistry, comparison_to_tool_data, weather_to_tool_data
 from app.models.trip import TransportMode
 from app.services.comparison_models import ComparisonResult
@@ -217,7 +217,7 @@ class AdvisorAgent:
         else:
             raise AdvisorError(f"Still calling tools after {self._max_steps} steps")
 
-        messages.append(user_message(ADVISOR_FINAL_V3))
+        messages.append(user_message(ADVISOR_FINAL_V4))
         final_response = client.chat(messages, response_schema=FinalAdvice.model_json_schema())
         final = FinalAdvice.model_validate_json(final_response.content)
 

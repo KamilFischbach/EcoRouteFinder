@@ -7,7 +7,7 @@ import pytest
 
 from app.ai.advisor_agent import MAX_STEPS, AdvisorAgent, FinalAdvice, rule_based_advice
 from app.ai.llm_client import LLMError, LLMResponse
-from app.ai.prompts import ADVISOR_FINAL_V3, ADVISOR_SYSTEM_V4
+from app.ai.prompts import ADVISOR_FINAL_V4, ADVISOR_SYSTEM_V4
 from app.ai.tools import build_tool_registry
 from app.models.trip import TransportMode
 from app.services.comparison_models import ComparisonResult
@@ -101,7 +101,7 @@ def test_tool_call_then_result_then_final_answer() -> None:
     assert tool_result["quote"] == {"co2_per_person": "9.3 kg"}
     assert last["tools"] is None
     assert last["response_schema"] == FinalAdvice.model_json_schema()
-    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V3
+    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V4
 
 
 def test_answer_without_tools() -> None:

@@ -182,3 +182,15 @@ Now give your final answer as JSON:
   "15.7 kg"); never round or rephrase it.
   Use "cheapest", "fastest" or "greenest" only where the data says so.
 """
+
+ADVISOR_FINAL_V4 = """\
+Now give your final answer as JSON:
+- recommended_mode: one of the practical modes from the context,
+- summary: one or two short sentences for the traveller saying what to take and why, mentioning
+  what they asked for (equipment, comfort, budget...) if anything.
+  The app shows the exact CO2, time and cost next to your summary, so you do not need to repeat
+  them. If you do use a number, copy its "quote" string exactly (e.g. "5 h 54 min", "152 PLN",
+  "15.7 kg"); never round or rephrase it.
+  Use "cheapest", "fastest" or "greenest" only where the data says so.
+  Plain text only: no Markdown, no **bold**, no bullet points.
+"""
