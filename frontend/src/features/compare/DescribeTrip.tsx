@@ -1,15 +1,16 @@
 import { useId, useState } from 'react';
 
 import { getErrorMessage } from '@/api/errors';
+import { AiIcon } from '@/components/AiIcon';
 import { Button } from '@/components/Button';
 import { cn } from '@/lib/cn';
 import { inputClass } from '@/lib/styles';
+import { FIELD_LIMITS } from '@/lib/validators';
 import { MODE_LABELS } from '@/types/trip';
 import type { DraftField, TripDraft } from '@/types/tripDraft';
 
 import { useTripDraftMutation } from './useTripDraft';
 
-const MAX_LENGTH = 500;
 const FIELD_LABELS: Record<DraftField, string> = {
   origin: 'From',
   destination: 'To',
@@ -67,7 +68,7 @@ export function DescribeTrip({ onDraft }: DescribeTripProps) {
       <textarea
         id={id}
         rows={2}
-        maxLength={MAX_LENGTH}
+        maxLength={FIELD_LIMITS.tripDescriptionMaxLength}
         className={cn(inputClass(), 'resize-none')}
         placeholder="e.g. Tomorrow I'm going from Gdynia to Toruń with my wife"
         value={text}
@@ -82,7 +83,8 @@ export function DescribeTrip({ onDraft }: DescribeTripProps) {
           isLoading={draft.isPending}
           disabled={!trimmed}
         >
-          Fill in
+          {!draft.isPending && <AiIcon />}
+          Fill in with AI
         </Button>
       </div>
       {draft.isPending && (

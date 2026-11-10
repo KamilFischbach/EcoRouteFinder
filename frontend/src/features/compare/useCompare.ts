@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { comparisonsApi } from '@/api/comparisons';
-import type { ComparisonInput } from '@/types/comparison';
+import type { Comparison, ComparisonInput } from '@/types/comparison';
 
 export const RECENT_COMPARISONS_LIMIT = 20;
 
@@ -38,6 +38,21 @@ export function useComparisonQuery(id: number | undefined) {
     queryFn: ({ signal }) => comparisonsApi.get(id as number, signal),
     enabled: id !== undefined,
     staleTime: Infinity,
+  });
+}
+
+/** Asks EcoAdvisor and stores the answer in the cached comparison (and its history row). */
+export function useAdviceMutation(comparisonId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (preferences: string | undefined) =>
+      comparisonsApi.advise(comparisonId, preferences),
+    onSuccess: (advice) => {
+      queryClient.setQueryData<Comparison>(comparisonKeys.detail(comparisonId), (current) =>
+        current ? { ...current, advice } : current,
+      );
+      return queryClient.invalidateQueries({ queryKey: comparisonKeys.lists() });
+    },
   });
 }
 

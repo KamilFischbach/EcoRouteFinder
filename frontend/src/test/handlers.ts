@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 
 import { API_URL } from '@/api/client';
 import type {
+  Advice,
   Comparison,
   ComparisonInput,
   ComparisonOption,
@@ -124,6 +125,25 @@ export function savedComparison(
   };
 }
 
+export const adviceFixture: Advice = {
+  recommended_mode: 'coach',
+  summary: 'Take the coach: low CO₂ and the cheapest practical option.',
+  reasons: ['11.8 kg CO₂ per person', 'About 54 PLN per person'],
+  used_llm: true,
+  model: 'qwen2.5:7b',
+  weather: {
+    location: 'Kraków',
+    temperature_c: 2.8,
+    precipitation_mm: 0,
+    wind_kph: 9,
+    weather_code: 3,
+    description: 'overcast',
+  },
+  preferences: null,
+  tool_trace: [{ tool: 'get_weather', arguments: { location: 'Kraków' }, ok: true }],
+  created_at: '2026-11-10T12:00:00Z',
+};
+
 function toSummary(c: Comparison): ComparisonSummary {
   const greenest = c.options.find((o) => o.mode === c.highlights.greenest) ?? null;
   const first = c.options[0];
@@ -137,7 +157,7 @@ function toSummary(c: Comparison): ComparisonSummary {
     greenest_mode: greenest?.mode ?? null,
     greenest_co2_kg: greenest?.co2_kg ?? null,
     solo_car_co2_kg: first ? first.co2_kg + first.co2_saved_vs_car_kg : 0,
-    recommended_mode: null,
+    recommended_mode: c.advice?.recommended_mode ?? null,
   };
 }
 
@@ -170,6 +190,16 @@ export const handlers = [
   http.get(`${API_URL}/comparisons/:id`, ({ params }) => {
     const found = comparisons.find((c) => c.id === Number(params.id));
     return found ? HttpResponse.json(found) : notFound(params.id);
+  }),
+
+  http.post(`${API_URL}/comparisons/:id/advice`, async ({ params, request }) => {
+    const index = comparisons.findIndex((c) => c.id === Number(params.id));
+    const current = comparisons[index];
+    if (!current) return notFound(params.id);
+    const body = (await request.json()) as { preferences?: string };
+    const advice: Advice = { ...adviceFixture, preferences: body.preferences ?? null };
+    comparisons[index] = { ...current, advice };
+    return HttpResponse.json(advice);
   }),
 
   http.delete(`${API_URL}/comparisons/:id`, ({ params }) => {

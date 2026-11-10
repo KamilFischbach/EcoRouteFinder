@@ -8,6 +8,9 @@ export const FIELD_LIMITS = {
   maxPassengers: 9,
   // GET /comparisons: limit 1..100 (backend/app/api/v1/comparisons.py).
   maxHistoryPageSize: 100,
+  // AdviceCreate.preferences and TripDraftCreate.text (backend/app/schemas).
+  preferencesMaxLength: 300,
+  tripDescriptionMaxLength: 500,
 } as const;
 
 /** Accepts both "12.5" and "12,5". */

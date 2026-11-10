@@ -44,6 +44,34 @@ export interface ComparisonHighlights {
   cheapest: TransportMode | null;
 }
 
+export interface WeatherInfo {
+  location: string;
+  temperature_c: number;
+  precipitation_mm: number;
+  wind_kph: number;
+  weather_code: number | null;
+  description: string | null;
+}
+
+export interface ToolTraceItem {
+  tool: string;
+  arguments: Record<string, unknown>;
+  ok: boolean;
+}
+
+/** EcoAdvisor's answer (POST /comparisons/{id}/advice), stored with the comparison. */
+export interface Advice {
+  recommended_mode: TransportMode;
+  summary: string;
+  reasons: string[];
+  used_llm: boolean;
+  model: string | null;
+  weather: WeatherInfo | null;
+  preferences: string | null;
+  tool_trace: ToolTraceItem[];
+  created_at: string;
+}
+
 /** A stored comparison: the snapshot taken when it was created. */
 export interface Comparison {
   id: number;
@@ -52,8 +80,7 @@ export interface Comparison {
   passengers: number;
   options: ComparisonOption[];
   highlights: ComparisonHighlights;
-  // TODO(ai): typed advice once the advisor exists.
-  advice: Record<string, unknown> | null;
+  advice: Advice | null;
 }
 
 /** Lightweight history row (GET /comparisons). */

@@ -5,7 +5,13 @@ import { Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { API_URL } from '@/api/client';
-import { getComparisonDb, getTripDb, resetComparisonDb, savedComparison } from '@/test/handlers';
+import {
+  adviceFixture,
+  getComparisonDb,
+  getTripDb,
+  resetComparisonDb,
+  savedComparison,
+} from '@/test/handlers';
 import { server } from '@/test/server';
 import { renderWithProviders } from '@/test/utils';
 import type { ComparisonInput } from '@/types/comparison';
@@ -241,7 +247,7 @@ describe('ComparePage history', () => {
 describe('ComparePage describe your trip', () => {
   async function describeTrip(user: UserEvent, text: string) {
     await user.type(screen.getByLabelText('Describe your trip'), text);
-    await user.click(screen.getByRole('button', { name: 'Fill in' }));
+    await user.click(screen.getByRole('button', { name: 'Fill in with AI' }));
   }
 
   it('fills the form from the AI draft without submitting it', async () => {
@@ -305,9 +311,103 @@ describe('ComparePage describe your trip', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong');
   });
 
-  it('disables Fill in for empty text', () => {
+  it('disables the fill-in button for empty text', () => {
     renderPage();
 
-    expect(screen.getByRole('button', { name: 'Fill in' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Fill in with AI' })).toBeDisabled();
+  });
+});
+
+describe('ComparePage EcoAdvisor', () => {
+  const advisor = () => screen.getByRole('region', { name: 'EcoAdvisor' });
+
+  async function openSaved(comparison = savedComparison(3, '2026-11-09T10:00:00Z')) {
+    resetComparisonDb([comparison]);
+    const view = renderPage('/compare/3');
+    await screen.findByRole('heading', { name: 'Warszawa → Kraków' });
+    return view;
+  }
+
+  it('asks the AI advisor and highlights the recommended card', async () => {
+    let sent: unknown;
+    server.use(
+      http.post(`${API_URL}/comparisons/:id/advice`, async ({ request }) => {
+        sent = await request.clone().json();
+        return undefined;
+      }),
+    );
+    const { user } = await openSaved();
+
+    await user.type(within(advisor()).getByLabelText(/preferences/i), 'cheapest please');
+    await user.click(within(advisor()).getByRole('button', { name: 'Ask EcoAdvisor' }));
+
+    expect(await within(advisor()).findByText('AI · qwen2.5:7b')).toBeInTheDocument();
+    expect(sent).toEqual({ preferences: 'cheapest please' });
+    expect(within(advisor()).getByText(adviceFixture.summary)).toBeInTheDocument();
+    expect(within(advisor()).getByText('11.8 kg CO₂ per person')).toBeInTheDocument();
+    expect(within(advisor()).getByText(/Kraków: 3 °C, overcast/)).toBeInTheDocument();
+    expect(within(card('Coach')).getByText('EcoAdvisor pick')).toBeInTheDocument();
+    expect(within(card('Train')).queryByText('EcoAdvisor pick')).not.toBeInTheDocument();
+    expect(within(advisor()).getByRole('button', { name: 'Ask again' })).toBeInTheDocument();
+  });
+
+  it('shows the rule-based badge when AI is offline', async () => {
+    server.use(
+      http.post(`${API_URL}/comparisons/:id/advice`, () =>
+        HttpResponse.json({
+          ...adviceFixture,
+          recommended_mode: 'train',
+          used_llm: false,
+          model: null,
+          tool_trace: [],
+        }),
+      ),
+    );
+    const { user } = await openSaved();
+
+    await user.click(within(advisor()).getByRole('button', { name: 'Ask EcoAdvisor' }));
+
+    expect(await within(advisor()).findByText('Rule-based (AI offline)')).toBeInTheDocument();
+    expect(within(card('Train')).getByText('EcoAdvisor pick')).toBeInTheDocument();
+    await user.click(within(advisor()).getByText('How I got this'));
+    expect(within(advisor()).getByText(/No extra tools were needed/)).toBeInTheDocument();
+  });
+
+  it('shows an error when the advice request fails', async () => {
+    server.use(
+      http.post(`${API_URL}/comparisons/:id/advice`, () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL_ERROR', message: 'boom', details: null } },
+          { status: 500 },
+        ),
+      ),
+    );
+    const { user } = await openSaved();
+
+    await user.click(within(advisor()).getByRole('button', { name: 'Ask EcoAdvisor' }));
+
+    expect(await within(advisor()).findByRole('alert')).toHaveTextContent('Something went wrong');
+  });
+
+  it('shows saved advice immediately when opening a comparison', async () => {
+    let asked = false;
+    server.use(
+      http.post(`${API_URL}/comparisons/:id/advice`, () => {
+        asked = true;
+        return undefined;
+      }),
+    );
+    const { user } = await openSaved({
+      ...savedComparison(3, '2026-11-09T10:00:00Z'),
+      advice: adviceFixture,
+    });
+
+    expect(within(advisor()).getByText(adviceFixture.summary)).toBeInTheDocument();
+    expect(within(card('Coach')).getByText('EcoAdvisor pick')).toBeInTheDocument();
+    await user.click(within(advisor()).getByText('How I got this'));
+    expect(within(advisor()).getByRole('list', { name: 'Tool calls' })).toHaveTextContent(
+      'get_weather({"location":"Kraków"})',
+    );
+    expect(asked).toBe(false);
   });
 });

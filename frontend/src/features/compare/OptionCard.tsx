@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 
+import { AiIcon } from '@/components/AiIcon';
 import { Button } from '@/components/Button';
 import { cn } from '@/lib/cn';
 import { formatCo2, formatCost, formatDistance, formatDuration } from '@/lib/format';
@@ -15,6 +16,8 @@ interface OptionCardProps {
   highlights: Highlight[];
   saveState: SaveState;
   saveError?: string | null;
+  /** EcoAdvisor recommended this option. */
+  recommended?: boolean;
   onSave: () => void;
 }
 
@@ -24,7 +27,14 @@ const HIGHLIGHT_STYLES: Record<Highlight, string> = {
   Cheapest: 'bg-amber-100 text-amber-800',
 };
 
-export function OptionCard({ option, highlights, saveState, saveError, onSave }: OptionCardProps) {
+export function OptionCard({
+  option,
+  highlights,
+  saveState,
+  saveError,
+  recommended = false,
+  onSave,
+}: OptionCardProps) {
   const label = MODE_LABELS[option.mode];
   const saved = option.co2_saved_vs_car_kg;
 
@@ -34,9 +44,16 @@ export function OptionCard({ option, highlights, saveState, saveError, onSave }:
       className={cn(
         'flex flex-col rounded-2xl border bg-white p-5 shadow-sm',
         highlights.includes('Greenest') ? 'border-emerald-300' : 'border-stone-200/80',
+        recommended && 'border-violet-300 ring-2 ring-violet-200',
         !option.practical && 'bg-stone-50 shadow-none',
       )}
     >
+      {recommended && (
+        <span className="mb-2 inline-flex w-fit items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+          <AiIcon className="size-3" />
+          EcoAdvisor pick
+        </span>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <h3 className={cn('font-semibold', option.practical ? 'text-stone-900' : 'text-stone-500')}>
           {label}

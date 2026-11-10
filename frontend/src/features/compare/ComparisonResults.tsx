@@ -8,6 +8,7 @@ import type { Comparison, ComparisonOption, RouteSource } from '@/types/comparis
 import type { TransportMode } from '@/types/trip';
 
 import { Co2Chart } from './Co2Chart';
+import { EcoAdvisorCard } from './EcoAdvisorCard';
 import { highlightsFor, sortOptions } from './highlights';
 import { OptionCard, type SaveState } from './OptionCard';
 
@@ -80,12 +81,15 @@ export function ComparisonResults({ comparison }: { comparison: Comparison }) {
         </div>
       </Card>
 
+      <EcoAdvisorCard comparison={comparison} />
+
       <ul aria-label="Transport options" className="grid gap-4 sm:grid-cols-2">
         {options.map((option) => (
           <OptionCard
             key={option.mode}
             option={option}
             highlights={highlightsFor(option.mode, comparison.highlights)}
+            recommended={comparison.advice?.recommended_mode === option.mode}
             saveState={saveState(option.mode)}
             saveError={failed?.mode === option.mode ? failed.message : null}
             onSave={() => save(option)}
