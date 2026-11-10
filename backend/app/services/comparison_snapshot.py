@@ -24,13 +24,33 @@ from app.services.comparison_models import (
 )
 
 # 2: `co2_saved_vs_car_kg` (vs one person driving alone) became `co2_saved_vs_petrol_car_kg`
-#    (vs the same group by petrol car). There are no migrations yet, so a database with
-#    version 1 snapshots has to be deleted (AGENTS.md section 3).
+#    (vs the same group by petrol car). `upgrade_snapshot` converts version 1 exactly, and
+#    `app.db.init_db` runs it on old databases at startup.
 SNAPSHOT_VERSION = 2
 
 
 def _mode_or_none(value: Any) -> TransportMode | None:
     return TransportMode(value) if value is not None else None
+
+
+def petrol_car_co2_kg(snapshot: dict[str, Any]) -> float:
+    """The savings baseline: CO2 per person of the petrol car option (same group)."""
+    petrol = next(o for o in snapshot["options"] if o["mode"] == TransportMode.CAR_PETROL.value)
+    return float(petrol["co2_kg"])
+
+
+def upgrade_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Return `snapshot` in the current format. Version 1 is converted without loss: its petrol
+    car option already holds the same group's CO2 per person, the new baseline."""
+    if snapshot.get("version") != 1:
+        return snapshot
+    baseline = petrol_car_co2_kg(snapshot)
+    options = []
+    for option in snapshot["options"]:
+        upgraded = {k: v for k, v in option.items() if k != "co2_saved_vs_car_kg"}
+        upgraded["co2_saved_vs_petrol_car_kg"] = round(baseline - option["co2_kg"], 2)
+        options.append(upgraded)
+    return {**snapshot, "version": SNAPSHOT_VERSION, "options": options}
 
 
 def to_snapshot(result: ComparisonResult) -> dict[str, Any]:

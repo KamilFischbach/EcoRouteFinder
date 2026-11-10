@@ -198,7 +198,7 @@ Public Nominatim and OSRM servers are fine for a demo but not for heavy traffic.
 
 Every comparison is saved (`comparison` table) and gets a linkable URL, `/compare/:id`. The result is stored as a **versioned JSON snapshot** of the options and highlights, because emission factors may change later and the history should show what you saw at the time. Opening a saved comparison reads the snapshot; nothing is recomputed. A few values (greenest mode and its CO₂, the petrol-car baseline, EcoAdvisor's pick) are also stored as plain columns, so the "Recent comparisons" list stays cheap. EcoAdvisor's latest answer is stored with its comparison.
 
-The table is created by `init_db()` at startup. There are no migrations yet: snapshot version 2 renamed the savings field and the `petrol_car_co2_kg` column, so **delete `backend/ecoroute.db` after updating from an older version** (it is recreated on the next start).
+The table is created by `init_db()` at startup. Snapshot version 2 renamed the savings field and the `solo_car_co2_kg` column (now `petrol_car_co2_kg`, the same group by petrol car). An older `ecoroute.db` is **upgraded in place on the next start**, keeping trips, history and advice: the old petrol-car option already holds the group's CO₂ per person, so the new savings are recomputed exactly.
 
 ## Trip assistant
 
