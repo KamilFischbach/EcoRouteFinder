@@ -2,7 +2,7 @@
 
 Snapshot format (`Comparison.result`), versioned so it can evolve::
 
-    {"version": 1,
+    {"version": 2,
      "options": [{"mode": "train", "distance_km": ..., ..., "note": null}, ...],
      "highlights": {"greenest": "train", "fastest": "car_ev", "cheapest": "car_ev"}}
 """
@@ -23,7 +23,10 @@ from app.services.comparison_models import (
     SavedComparison,
 )
 
-SNAPSHOT_VERSION = 1
+# 2: `co2_saved_vs_car_kg` (vs one person driving alone) became `co2_saved_vs_petrol_car_kg`
+#    (vs the same group by petrol car). There are no migrations yet, so a database with
+#    version 1 snapshots has to be deleted (AGENTS.md section 3).
+SNAPSHOT_VERSION = 2
 
 
 def _mode_or_none(value: Any) -> TransportMode | None:
@@ -75,7 +78,7 @@ def to_record(
         result=to_snapshot(result),
         greenest_mode=greenest.mode if greenest else None,
         greenest_co2_kg=greenest.co2_kg if greenest else None,
-        solo_car_co2_kg=result.solo_car_co2_kg,
+        petrol_car_co2_kg=result.petrol_car_co2_kg,
     )
 
 
@@ -124,6 +127,6 @@ def to_summary(record: Comparison) -> ComparisonSummary:
         created_at=record.created_at,
         greenest_mode=record.greenest_mode,
         greenest_co2_kg=record.greenest_co2_kg,
-        solo_car_co2_kg=record.solo_car_co2_kg,
+        petrol_car_co2_kg=record.petrol_car_co2_kg,
         recommended_mode=record.recommended_mode,
     )

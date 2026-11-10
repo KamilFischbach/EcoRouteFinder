@@ -1,3 +1,4 @@
+import { formatCo2 } from '@/lib/format';
 import type { ComparisonHighlights, ComparisonOption } from '@/types/comparison';
 import type { TransportMode } from '@/types/trip';
 
@@ -18,10 +19,17 @@ export function sortOptions(options: ComparisonOption[]): ComparisonOption[] {
   );
 }
 
-/** "38.9 kg CO₂ less than driving alone" / "10 kg CO₂ more ..." / "Same as driving alone". */
-export function savingsLabel(savedKg: number): string {
-  const rounded = Math.round(Math.abs(savedKg) * 10) / 10;
-  if (rounded === 0) return 'Same CO₂ as driving alone';
-  const direction = savedKg > 0 ? 'less' : 'more';
-  return `${rounded.toLocaleString('en-GB')} kg CO₂ ${direction} than driving alone`;
+/** What savings are compared with: the same group going by petrol car (per person). */
+export function petrolCarBaseline(passengers: number): string {
+  return passengers === 1 ? 'going by petrol car' : 'going by petrol car together';
+}
+
+/** "Saves 14.7 kg CO₂ vs going by petrol car together" / "34.2 kg CO₂ more vs ...". */
+export function savingsLabel(option: ComparisonOption, passengers: number): string {
+  if (option.mode === 'car_petrol') return 'Baseline for CO₂ savings';
+  const saved = option.co2_saved_vs_petrol_car_kg;
+  const baseline = petrolCarBaseline(passengers);
+  const amount = formatCo2(Math.abs(saved));
+  if (amount === formatCo2(0)) return `Same CO₂ as ${baseline}`;
+  return saved > 0 ? `Saves ${amount} CO₂ vs ${baseline}` : `${amount} CO₂ more vs ${baseline}`;
 }

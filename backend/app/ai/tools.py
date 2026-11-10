@@ -17,10 +17,18 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 from app.ai.llm_client import ToolSpec
 from app.core.errors import AppError
 from app.models.trip import TransportMode
-from app.services.comparison_models import ComparisonResult
+from app.services.comparison_models import ComparedOption, ComparisonResult
 from app.services.comparison_service import ComparisonService
 from app.services.emissions import calculate_emissions
-from app.services.weather import WeatherProvider
+from app.services.formatting import (
+    format_co2,
+    format_co2_saving,
+    format_cost,
+    format_distance,
+    format_duration,
+    format_temperature,
+)
+from app.services.weather import WeatherInfo, WeatherProvider
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +126,29 @@ class ToolRegistry:
 # --- handlers (thin wrappers around services) -----------------------------------------
 
 
+SAVINGS_BASELINE = "the same group going together by petrol car"
+
+
+def option_to_tool_data(option: ComparedOption) -> dict[str, Any]:
+    """Raw values for checks and ready-to-quote strings for the model's answer."""
+    return {
+        "mode": option.mode.value,
+        "practical": option.practical,
+        "co2_kg": option.co2_kg,
+        "co2_saved_vs_petrol_car_kg": option.co2_saved_vs_petrol_car_kg,
+        "duration_min": option.duration_min,
+        "cost_pln": option.cost_pln,
+        "distance_km": option.distance_km,
+        "quote": {
+            "co2": format_co2(option.co2_kg),
+            "co2_saved_vs_petrol_car": format_co2_saving(option.co2_saved_vs_petrol_car_kg),
+            "duration": format_duration(option.duration_min),
+            "cost": format_cost(option.cost_pln),
+        },
+        **({"note": option.note} if option.note else {}),
+    }
+
+
 def comparison_to_tool_data(result: ComparisonResult) -> dict[str, Any]:
     """Compact, LLM-friendly view of a comparison (all values per person)."""
     return {
@@ -125,25 +156,19 @@ def comparison_to_tool_data(result: ComparisonResult) -> dict[str, Any]:
             "origin": result.route.origin.name,
             "destination": result.route.destination.name,
             "road_distance_km": result.route.distance_km,
+            "road_distance": format_distance(result.route.distance_km),
             "distance_source": result.route.source,
         },
         "passengers": result.passengers,
         "values_are": "per person",
-        "options": [
-            {
-                "mode": o.mode.value,
-                "practical": o.practical,
-                "co2_kg": o.co2_kg,
-                "co2_saved_vs_driving_alone_kg": o.co2_saved_vs_car_kg,
-                "duration_min": o.duration_min,
-                "cost_pln": o.cost_pln,
-                "distance_km": o.distance_km,
-                **({"note": o.note} if o.note else {}),
-            }
-            for o in result.options
-        ],
+        "co2_saved_is_compared_with": SAVINGS_BASELINE,
+        "options": [option_to_tool_data(o) for o in result.options],
         "highlights": {k: (v.value if v else None) for k, v in asdict(result.highlights).items()},
     }
+
+
+def weather_to_tool_data(info: WeatherInfo) -> dict[str, Any]:
+    return {**asdict(info), "quote": {"temperature": format_temperature(info.temperature_c)}}
 
 
 def build_tool_registry(comparisons: ComparisonService, weather: WeatherProvider) -> ToolRegistry:
@@ -155,7 +180,7 @@ def build_tool_registry(comparisons: ComparisonService, weather: WeatherProvider
         info = weather.for_place(args.location)
         if info is None:
             raise ToolError(f"Weather is not available for '{args.location}' right now.")
-        return asdict(info)
+        return weather_to_tool_data(info)
 
     def emissions(args: CalculateEmissionsArgs) -> dict[str, Any]:
         co2 = calculate_emissions(args.distance_km, args.mode, args.passengers)
@@ -164,6 +189,7 @@ def build_tool_registry(comparisons: ComparisonService, weather: WeatherProvider
             "distance_km": args.distance_km,
             "passengers": args.passengers,
             "co2_kg_per_person": round(co2, 2),
+            "quote": {"co2_per_person": format_co2(co2)},
         }
 
     return ToolRegistry(

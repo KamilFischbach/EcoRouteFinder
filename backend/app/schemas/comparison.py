@@ -51,7 +51,9 @@ class ComparisonOptionRead(_FromAttributes):
     duration_min: int
     cost_pln: float
     co2_kg: float
-    co2_saved_vs_car_kg: float
+    co2_saved_vs_petrol_car_kg: float
+    """kg CO2 per person saved compared with the same group going by petrol car (negative =
+    more)."""
     practical: bool
     note: str | None
 
@@ -119,5 +121,6 @@ class ComparisonSummaryRead(_FromAttributes):
     created_at: UtcDatetime
     greenest_mode: TransportMode | None
     greenest_co2_kg: float | None
-    solo_car_co2_kg: float
+    petrol_car_co2_kg: float
+    """CO2 per person if the same group went by petrol car (the savings baseline)."""
     recommended_mode: TransportMode | None

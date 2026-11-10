@@ -19,6 +19,13 @@ from typing import Any, Literal
 from app.ai.tools import comparison_to_tool_data
 from app.models.trip import TransportMode
 from app.services.comparison_models import ComparedOption, ComparisonResult
+from app.services.formatting import (
+    format_co2,
+    format_co2_saving,
+    format_cost,
+    format_duration,
+    format_temperature,
+)
 from app.services.weather import WeatherInfo, bad_for_cycling
 
 M = TransportMode
@@ -51,23 +58,29 @@ class SummaryMismatchError(Exception):
     """The model's summary says something the data does not support."""
 
 
-# --- formatting -----------------------------------------------------------------------
+# --- wording --------------------------------------------------------------------------
 
 
-def kg(value: float) -> str:
-    return f"{value:.1f} kg"
+def petrol_car_baseline(passengers: int) -> str:
+    """What CO₂ savings are compared with: the same group going by petrol car."""
+    return "going by petrol car" if passengers == 1 else "going by petrol car together"
 
 
-def duration(minutes: int) -> str:
-    hours, mins = divmod(minutes, 60)
-    return f"{mins} min" if hours == 0 else f"{hours} h {mins:02d} min"
+def savings(option: ComparedOption, passengers: int) -> str | None:
+    """ "14.3 kg less than going by petrol car together"; None for the petrol car itself."""
+    if option.mode is M.CAR_PETROL:
+        return None
+    saving = format_co2_saving(option.co2_saved_vs_petrol_car_kg)
+    baseline = petrol_car_baseline(passengers)
+    if saving == "no difference":
+        return f"the same as {baseline}"
+    return f"{saving} than {baseline}"
 
 
-def savings(option: ComparedOption) -> str:
-    saved = option.co2_saved_vs_car_kg
-    if abs(saved) < 0.05:
-        return "the same as driving alone"
-    return f"{kg(abs(saved))} {'less' if saved > 0 else 'more'} than driving alone"
+def co2_line(option: ComparedOption, passengers: int) -> str:
+    """ "9.3 kg CO₂ per person, 14.3 kg less than going by petrol car together" """
+    saving = savings(option, passengers)
+    return f"{format_co2(option.co2_kg)} CO₂ per person" + (f", {saving}" if saving else "")
 
 
 def mentions(text: str | None, words: tuple[str, ...]) -> bool:
@@ -182,9 +195,9 @@ def build_reasons(
     suitable = suitable_options(comparison, preferences, weather)
 
     reasons = [
-        f"{kg(option.co2_kg)} CO₂ per person, {savings(option)}.",
-        f"About {duration(option.duration_min)} door to door, roughly "
-        f"{option.cost_pln:.0f} PLN per person.",
+        f"{co2_line(option, comparison.passengers)}.",
+        f"About {format_duration(option.duration_min)} door to door, roughly "
+        f"{format_cost(option.cost_pln)} per person.",
         *suitable.notes,
     ]
 
@@ -199,19 +212,19 @@ def build_reasons(
             other = best_option(pool, "cost")
             reasons.append(
                 f"Not the cheapest: {MODE_LABELS[other.mode]} costs about "
-                f"{other.cost_pln:.0f} PLN per person."
+                f"{format_cost(other.cost_pln)} per person."
             )
         elif mentions(preferences, FAST_WORDS) and not is_best(option, pool, "time"):
             other = best_option(pool, "time")
             reasons.append(
                 f"Not the fastest: {MODE_LABELS[other.mode]} takes about "
-                f"{duration(other.duration_min)}."
+                f"{format_duration(other.duration_min)}."
             )
 
     weather_problem = bad_for_cycling(weather) if weather else None
     if weather and not weather_problem:
         reasons.append(
-            f"Weather in {weather.location}: {weather.temperature_c:.0f} °C, "
+            f"Weather in {weather.location}: {format_temperature(weather.temperature_c)}, "
             f"{weather.description or 'no rain'}."
         )
     return reasons
@@ -363,7 +376,7 @@ def find_false_claims(
                     continue
                 after = [m for m in found if m.start >= match.end()]
                 if not after:
-                    continue  # "cheaper than driving alone": nothing to compare with
+                    continue  # "cheaper than going by car": no single mode to compare with
                 subject = _subject(clause, found, match.start(), recommended)
                 left, right = comparison.option(subject), comparison.option(after[0].mode)
                 if left is None or right is None or left is right:

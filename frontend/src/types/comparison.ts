@@ -32,8 +32,8 @@ export interface ComparisonOption {
   duration_min: number;
   cost_pln: number;
   co2_kg: number;
-  /** kg CO2 saved vs driving alone in a petrol car; negative means more. */
-  co2_saved_vs_car_kg: number;
+  /** kg CO2 per person saved vs the same group going by petrol car; negative means more. */
+  co2_saved_vs_petrol_car_kg: number;
   practical: boolean;
   note: string | null;
 }
@@ -93,6 +93,7 @@ export interface ComparisonSummary {
   created_at: string;
   greenest_mode: TransportMode | null;
   greenest_co2_kg: number | null;
-  solo_car_co2_kg: number;
+  /** CO2 per person if the same group went by petrol car (the savings baseline). */
+  petrol_car_co2_kg: number;
   recommended_mode: TransportMode | null;
 }

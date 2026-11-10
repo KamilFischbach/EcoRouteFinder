@@ -76,7 +76,9 @@ describe('ComparePage', () => {
 
     const train = card('Train');
     expect(within(train).getByText('Greenest')).toBeInTheDocument();
-    expect(within(train).getByText('38.9 kg CO₂ less than driving alone')).toBeInTheDocument();
+    expect(
+      within(train).getByText('Saves 14.7 kg CO₂ vs going by petrol car together'),
+    ).toBeInTheDocument();
     const ev = card('Electric car');
     expect(within(ev).getByText('Fastest')).toBeInTheDocument();
     expect(within(ev).getByText('Cheapest')).toBeInTheDocument();
@@ -84,7 +86,9 @@ describe('ComparePage', () => {
     const plane = card('Plane');
     expect(within(plane).getByText('Not practical')).toBeInTheDocument();
     expect(within(plane).getByText('Not worth flying under 300 km.')).toBeInTheDocument();
-    expect(within(plane).getByText('10 kg CO₂ more than driving alone')).toBeInTheDocument();
+    expect(
+      within(plane).getByText('34.2 kg CO₂ more vs going by petrol car together'),
+    ).toBeInTheDocument();
 
     // Practical options first (by CO2), impractical ones last.
     const names = within(screen.getByRole('list', { name: 'Transport options' }))
@@ -180,8 +184,8 @@ describe('ComparePage history', () => {
     ]);
     expect(rows[0]).toHaveTextContent('2 h ago');
     expect(rows[0]).toHaveTextContent('Train');
-    // Solo petrol car 48.37 kg - train 9.44 kg.
-    expect(rows[0]).toHaveTextContent('saves 38.9 kg CO₂');
+    // Same 2 people by petrol car 24.18 kg - train 9.44 kg, per person.
+    expect(rows[0]).toHaveTextContent('saves 14.7 kg CO₂ vs petrol car');
   });
 
   it('opens a saved comparison from its snapshot', async () => {

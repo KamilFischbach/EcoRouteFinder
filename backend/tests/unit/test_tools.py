@@ -39,6 +39,7 @@ def test_calculate_emissions_tool() -> None:
         "distance_km": 100,
         "passengers": 2,
         "co2_kg_per_person": 8.08,
+        "quote": {"co2_per_person": "8.1 kg"},
     }
 
 
@@ -57,11 +58,21 @@ def test_compare_tool_uses_the_comparison_service_without_saving() -> None:
         "mode": "train",
         "practical": True,
         "co2_kg": 9.35,
-        "co2_saved_vs_driving_alone_kg": 38.04,
+        "co2_saved_vs_petrol_car_kg": 14.34,
         "duration_min": 217,
         "cost_pln": 90.72,
         "distance_km": 302.4,
+        "quote": {
+            "co2": "9.3 kg",
+            "co2_saved_vs_petrol_car": "14.3 kg less",
+            "duration": "3 h 37 min",
+            "cost": "91 PLN",
+        },
     }
+    assert (
+        result.data["co2_saved_is_compared_with"] == "the same group going together by petrol car"
+    )
+    assert result.data["route"]["road_distance"] == "293.4 km"
 
 
 def test_weather_tool() -> None:
@@ -70,6 +81,7 @@ def test_weather_tool() -> None:
     assert result.ok is True
     assert result.data["location"] == "Gdańsk"
     assert result.data["temperature_c"] == 15.0
+    assert result.data["quote"] == {"temperature": "15 °C"}
 
 
 @pytest.mark.parametrize(

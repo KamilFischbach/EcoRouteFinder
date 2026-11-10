@@ -26,7 +26,7 @@ from app.services.comparison_models import (
     RoutePoint,
     SavedComparison,
 )
-from app.services.emissions import calculate_emissions, estimate_option
+from app.services.emissions import OptionEstimate, estimate_option
 from app.services.routing import RouteProvider
 from app.services.transport_factors import FACTORS
 
@@ -79,8 +79,11 @@ class ComparisonService:
         resolved = self._resolve_route(origin, destination, distance_km)
         if resolved.road_km < MIN_ROUTE_KM:
             raise RouteTooShortError(resolved.road_km)
-        baseline_kg = calculate_emissions(resolved.road_km, TransportMode.CAR_PETROL, 1)
-        options = [self._option(mode, resolved, passengers, baseline_kg) for mode in TransportMode]
+        estimates = [self._estimate(mode, resolved, passengers) for mode in TransportMode]
+        # Savings baseline: the same group going together by petrol car (per person). Using the
+        # rounded estimate keeps the petrol car's own saving at exactly 0.
+        baseline_kg = next(e.co2_kg for e in estimates if e.mode is TransportMode.CAR_PETROL)
+        options = [_to_option(e, baseline_kg) for e in estimates]
         options.sort(key=lambda o: (o.co2_kg, o.duration_min))
         return ComparisonResult(
             route=resolved.route,
@@ -157,18 +160,19 @@ class ComparisonService:
         return _ResolvedRoute(route, info.road_km, info.great_circle_km, info.driving_duration_min)
 
     @staticmethod
-    def _option(
-        mode: TransportMode, resolved: _ResolvedRoute, passengers: int, baseline_kg: float
-    ) -> ComparedOption:
+    def _estimate(mode: TransportMode, resolved: _ResolvedRoute, passengers: int) -> OptionEstimate:
         distance = mode_distance_km(mode, resolved.road_km, resolved.great_circle_km)
-        estimate = estimate_option(mode, distance, passengers, resolved.driving_duration_min)
-        return ComparedOption(
-            mode=estimate.mode,
-            distance_km=estimate.distance_km,
-            duration_min=estimate.duration_min,
-            cost_pln=estimate.cost_pln,
-            co2_kg=estimate.co2_kg,
-            co2_saved_vs_car_kg=round(baseline_kg - estimate.co2_kg, 2),
-            practical=estimate.practical,
-            note=estimate.note,
-        )
+        return estimate_option(mode, distance, passengers, resolved.driving_duration_min)
+
+
+def _to_option(estimate: OptionEstimate, baseline_kg: float) -> ComparedOption:
+    return ComparedOption(
+        mode=estimate.mode,
+        distance_km=estimate.distance_km,
+        duration_min=estimate.duration_min,
+        cost_pln=estimate.cost_pln,
+        co2_kg=estimate.co2_kg,
+        co2_saved_vs_petrol_car_kg=round(baseline_kg - estimate.co2_kg, 2),
+        practical=estimate.practical,
+        note=estimate.note,
+    )

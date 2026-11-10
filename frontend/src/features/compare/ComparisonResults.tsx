@@ -88,6 +88,7 @@ export function ComparisonResults({ comparison }: { comparison: Comparison }) {
           <OptionCard
             key={option.mode}
             option={option}
+            passengers={passengers}
             highlights={highlightsFor(option.mode, comparison.highlights)}
             recommended={comparison.advice?.recommended_mode === option.mode}
             saveState={saveState(option.mode)}

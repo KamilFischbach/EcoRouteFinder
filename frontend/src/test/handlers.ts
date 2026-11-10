@@ -63,12 +63,13 @@ export const comparisonFixture: Comparison = {
   },
   passengers: 2,
   options: [
-    option('bike', 305.3, 1221, 0, 0, 48.37, false, 'Too far to cycle (over 100 km).'),
-    option('train', 305.3, 219, 91.58, 9.44, 38.93, true),
-    option('coach', 299.5, 272, 53.9, 11.82, 36.55, true),
-    option('car_ev', 299.5, 211, 37.43, 16.92, 31.45, true),
-    option('car_petrol', 299.5, 211, 67.38, 24.18, 24.19, true),
-    option('plane', 254.4, 151, 203.52, 58.33, -9.96, false, 'Not worth flying under 300 km.'),
+    // Savings are per person vs the same 2 people going by petrol car (24.18 kg each).
+    option('bike', 305.3, 1221, 0, 0, 24.18, false, 'Too far to cycle (over 100 km).'),
+    option('train', 305.3, 219, 91.58, 9.44, 14.74, true),
+    option('coach', 299.5, 272, 53.9, 11.82, 12.36, true),
+    option('car_ev', 299.5, 211, 37.43, 16.92, 7.26, true),
+    option('car_petrol', 299.5, 211, 67.38, 24.18, 0, true),
+    option('plane', 254.4, 151, 203.52, 58.33, -34.15, false, 'Not worth flying under 300 km.'),
   ],
   highlights: { greenest: 'train', fastest: 'car_ev', cheapest: 'car_ev' },
 };
@@ -79,7 +80,7 @@ function option(
   duration_min: number,
   cost_pln: number,
   co2_kg: number,
-  co2_saved_vs_car_kg: number,
+  co2_saved_vs_petrol_car_kg: number,
   practical: boolean,
   note: string | null = null,
 ): ComparisonOption {
@@ -89,7 +90,7 @@ function option(
     duration_min,
     cost_pln,
     co2_kg,
-    co2_saved_vs_car_kg,
+    co2_saved_vs_petrol_car_kg,
     practical,
     note,
   };
@@ -156,7 +157,7 @@ function toSummary(c: Comparison): ComparisonSummary {
     created_at: c.created_at,
     greenest_mode: greenest?.mode ?? null,
     greenest_co2_kg: greenest?.co2_kg ?? null,
-    solo_car_co2_kg: first ? first.co2_kg + first.co2_saved_vs_car_kg : 0,
+    petrol_car_co2_kg: first ? first.co2_kg + first.co2_saved_vs_petrol_car_kg : 0,
     recommended_mode: c.advice?.recommended_mode ?? null,
   };
 }

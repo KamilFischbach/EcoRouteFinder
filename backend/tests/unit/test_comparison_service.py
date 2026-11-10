@@ -40,20 +40,32 @@ def test_mode_distances_road_vs_great_circle() -> None:
     assert options[TransportMode.PLANE].distance_km == 252
 
 
-def test_per_person_values_and_savings_vs_driving_alone() -> None:
-    options = {
-        o.mode: o for o in ComparisonService(FakeRouteProvider()).compute("A", "B", 2).options
-    }
+def test_per_person_values_and_savings_vs_petrol_car_together() -> None:
+    comparison = ComparisonService(FakeRouteProvider()).compute("A", "B", 2)
+    options = {o.mode: o for o in comparison.options}
     petrol = options[TransportMode.CAR_PETROL]
     train = options[TransportMode.TRAIN]
 
     # Petrol car shared by 2: 293.4 km x 0.16152 / 2.
     assert petrol.co2_kg == pytest.approx(23.69)
-    # Saving vs a solo petrol car (47.39 kg) is the half the passenger no longer emits.
-    assert petrol.co2_saved_vs_car_kg == pytest.approx(23.70)
+    # The baseline is the same group by petrol car, so the petrol car itself saves nothing...
+    assert petrol.co2_saved_vs_petrol_car_kg == 0
+    assert comparison.petrol_car_co2_kg == pytest.approx(23.69)
+    # ...and the train saves 23.69 - 9.35 per person (not 47.39 - 9.35 vs driving alone).
     assert train.co2_kg == pytest.approx(9.35)
-    assert train.co2_saved_vs_car_kg == pytest.approx(47.39 - 9.35, abs=0.01)
+    assert train.co2_saved_vs_petrol_car_kg == pytest.approx(14.34)
     assert petrol.duration_min == 180  # OSRM driving time
+
+
+@pytest.mark.parametrize(("passengers", "baseline"), [(1, 47.39), (4, 11.85)])
+def test_savings_baseline_follows_the_group_size(passengers: int, baseline: float) -> None:
+    comparison = ComparisonService(FakeRouteProvider()).compute("A", "B", passengers)
+    train = comparison.option(TransportMode.TRAIN)
+
+    assert comparison.petrol_car_co2_kg == pytest.approx(baseline)
+    assert train is not None
+    # Train emissions are per passenger, so the saving shrinks as the car fills up.
+    assert train.co2_saved_vs_petrol_car_kg == pytest.approx(baseline - 9.35, abs=0.01)
 
 
 def test_impractical_options_and_highlights() -> None:
@@ -62,7 +74,7 @@ def test_impractical_options_and_highlights() -> None:
 
     assert options[TransportMode.PLANE].practical is False  # 252 km < 300 km
     assert options[TransportMode.BIKE].practical is False  # 302 km > 100 km
-    assert options[TransportMode.PLANE].co2_saved_vs_car_kg < 0
+    assert options[TransportMode.PLANE].co2_saved_vs_petrol_car_kg < 0
     # Bike has zero CO2 but is impractical, so the train is the greenest practical option.
     assert comparison.highlights == Highlights(
         greenest=TransportMode.TRAIN, fastest=TransportMode.CAR_EV, cheapest=TransportMode.CAR_EV

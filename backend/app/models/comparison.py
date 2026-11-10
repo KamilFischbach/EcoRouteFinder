@@ -2,7 +2,7 @@
 
 `result` stores options + highlights as JSON. Factors may change later; history must keep
 showing the numbers from the moment of the comparison, so nothing is recomputed on read.
-The `greenest_*`, `solo_car_co2_kg` and `recommended_mode` columns duplicate a few snapshot
+The `greenest_*`, `petrol_car_co2_kg` and `recommended_mode` columns duplicate a few snapshot
 values so the history list doesn't have to parse JSON for every row.
 """
 
@@ -41,7 +41,7 @@ class Comparison(SQLModel, table=True):
     # Denormalised for the history list.
     greenest_mode: TransportMode | None = None
     greenest_co2_kg: float | None = None
-    solo_car_co2_kg: float
+    petrol_car_co2_kg: float  # per person, same group by petrol car (the savings baseline)
     recommended_mode: TransportMode | None = None
 
     created_at: datetime = Field(default_factory=utc_now, index=True)

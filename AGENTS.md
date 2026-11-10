@@ -10,7 +10,7 @@ Status:
 - **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history, "Describe your trip" and EcoAdvisor card; AI status badge.
 - **Not implemented yet:** the Dashboard page and the map. Do not treat them as implemented.
 
-**All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values compare against one person driving alone in a petrol car. Keep it that way.
+**All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values (`co2_saved_vs_petrol_car_kg`, `petrol_car_co2_kg`) compare against **the same group going together by petrol car**, per person, so the petrol car itself saves 0. Keep it that way. Numbers shown to users or the LLM as text are formatted only by `services/formatting.py` (same rounding as `frontend/src/lib/format.ts`).
 
 Services that AI tools (and later an MCP server) call (`emissions`, `routing`, `weather`, `ComparisonService.compute`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
 

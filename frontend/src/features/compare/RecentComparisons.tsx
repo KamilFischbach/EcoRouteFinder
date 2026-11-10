@@ -16,7 +16,7 @@ import { MODE_LABELS } from '@/types/trip';
 import { useComparisonsQuery, useDeleteComparison } from './useCompare';
 
 function savedKg(row: ComparisonSummary): number | null {
-  return row.greenest_co2_kg === null ? null : row.solo_car_co2_kg - row.greenest_co2_kg;
+  return row.greenest_co2_kg === null ? null : row.petrol_car_co2_kg - row.greenest_co2_kg;
 }
 
 function RecentRow({
@@ -46,7 +46,9 @@ function RecentRow({
           {row.greenest_mode ? (
             <>
               <ModeBadge mode={row.greenest_mode} />
-              {saved !== null && saved > 0 && <span>saves {formatCo2(saved)} CO₂</span>}
+              {saved !== null && saved > 0 && (
+                <span>saves {formatCo2(saved)} CO₂ vs petrol car</span>
+              )}
             </>
           ) : (
             <span>No practical option</span>

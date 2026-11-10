@@ -13,6 +13,8 @@ export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 interface OptionCardProps {
   option: ComparisonOption;
+  /** Group size: savings compare with the same group going by petrol car. */
+  passengers: number;
   highlights: Highlight[];
   saveState: SaveState;
   saveError?: string | null;
@@ -29,6 +31,7 @@ const HIGHLIGHT_STYLES: Record<Highlight, string> = {
 
 export function OptionCard({
   option,
+  passengers,
   highlights,
   saveState,
   saveError,
@@ -36,7 +39,7 @@ export function OptionCard({
   onSave,
 }: OptionCardProps) {
   const label = MODE_LABELS[option.mode];
-  const saved = option.co2_saved_vs_car_kg;
+  const saved = option.co2_saved_vs_petrol_car_kg;
 
   return (
     <li
@@ -91,7 +94,7 @@ export function OptionCard({
           !option.practical ? 'text-stone-400' : saved > 0 ? 'text-emerald-700' : 'text-stone-500',
         )}
       >
-        {savingsLabel(saved)}
+        {savingsLabel(option, passengers)}
       </p>
 
       {option.note && <p className="mt-2 text-sm text-stone-500">{option.note}</p>}

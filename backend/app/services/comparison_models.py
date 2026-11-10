@@ -32,8 +32,9 @@ class ComparedOption:
     duration_min: int
     cost_pln: float
     co2_kg: float
-    co2_saved_vs_car_kg: float
-    """kg CO2 saved per person compared to driving alone in a petrol car (negative = more)."""
+    co2_saved_vs_petrol_car_kg: float
+    """kg CO2 saved per person compared with the same group going together by petrol car
+    (negative = more). The petrol car option itself is always 0."""
     practical: bool
     note: str | None
 
@@ -58,10 +59,10 @@ class ComparisonResult:
         return next((o for o in self.options if o.mode is mode), None)
 
     @property
-    def solo_car_co2_kg(self) -> float:
-        """CO2 for one person driving alone in a petrol car on this route."""
+    def petrol_car_co2_kg(self) -> float:
+        """CO2 per person when the same group goes by petrol car: the savings baseline."""
         option = self.options[0]
-        return round(option.co2_kg + option.co2_saved_vs_car_kg, 2)
+        return round(option.co2_kg + option.co2_saved_vs_petrol_car_kg, 2)
 
 
 @dataclass(frozen=True)
@@ -90,5 +91,5 @@ class ComparisonSummary:
     created_at: datetime
     greenest_mode: TransportMode | None
     greenest_co2_kg: float | None
-    solo_car_co2_kg: float
+    petrol_car_co2_kg: float
     recommended_mode: TransportMode | None

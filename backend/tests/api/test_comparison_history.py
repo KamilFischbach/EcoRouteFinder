@@ -66,12 +66,13 @@ def test_list_returns_newest_first_with_summary_fields(client: TestClient) -> No
         "greenest_mode": "bike",
         "greenest_co2_kg": 0.0,
         # Petrol car, one person, 12 km x 0.16152.
-        "solo_car_co2_kg": 1.94,
+        "petrol_car_co2_kg": 1.94,
         "recommended_mode": None,
     }
     assert oldest["greenest_mode"] == "train"
     assert oldest["greenest_co2_kg"] == pytest.approx(9.35)
-    assert oldest["solo_car_co2_kg"] == pytest.approx(47.39)
+    # Two people sharing a petrol car on 293.4 km: 47.39 / 2 per person.
+    assert oldest["petrol_car_co2_kg"] == pytest.approx(23.69)
 
 
 def test_list_paginates(client: TestClient) -> None:

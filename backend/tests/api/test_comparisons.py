@@ -36,7 +36,7 @@ def test_comparison_returns_route_options_and_highlights(
         "duration_min",
         "cost_pln",
         "co2_kg",
-        "co2_saved_vs_car_kg",
+        "co2_saved_vs_petrol_car_kg",
         "practical",
         "note",
     }

@@ -43,7 +43,7 @@ def test_reasons_for_greenest_pick() -> None:
     reasons = build_reasons(M.TRAIN, long_trip(), None, make_weather())
 
     assert reasons == [
-        "9.3 kg CO₂ per person, 38.0 kg less than driving alone.",
+        "9.3 kg CO₂ per person, 14.3 kg less than going by petrol car together.",
         "About 3 h 37 min door to door, roughly 91 PLN per person.",
         "Lowest CO₂ of the practical options.",
         "Weather in Kraków: 15 °C, partly cloudy.",
@@ -65,7 +65,7 @@ def test_reasons_say_when_the_pick_ignores_a_cost_preference() -> None:
 def test_reasons_say_when_the_pick_ignores_a_speed_preference() -> None:
     reasons = build_reasons(M.COACH, long_trip(), "fast please", None)
 
-    assert "Not the fastest: Electric car takes about 3 h 00 min." in reasons
+    assert "Not the fastest: Electric car takes about 3 h." in reasons
 
 
 def test_reasons_explain_skipped_bike_and_hide_weather_line_in_rain() -> None:
@@ -103,7 +103,7 @@ def test_reasons_reject_a_mode_outside_the_comparison() -> None:
         ("The train isn't the fastest option.", M.TRAIN),
         ("The plane would be the fastest, but flying 252 km makes no sense.", M.TRAIN),
         ("Cycling is the cheapest, but too far.", M.TRAIN),  # true among all options
-        ("The train emits far less than driving alone.", M.TRAIN),  # no mode to compare with
+        ("The train emits far less than going by car.", M.TRAIN),  # no mode to compare with
         ("Pociąg to najbardziej ekologiczna opcja.", M.TRAIN),
         ("Pociąg jest bardziej ekologiczny od samochodu.", M.TRAIN),
         ("Najtańszy jest samochód elektryczny, ale pociąg jest najczystszy.", M.TRAIN),
@@ -160,7 +160,8 @@ def known(preferences: str | None = None, tool_data: list[object] | None = None)
         "The train emits 9.35 kg of CO2 per person.",
         "About 9.3 kg CO₂ and 3 h 37 min.",
         "Roughly 91 PLN, or 90,72 PLN to be exact.",
-        "Save 38 kg compared with driving alone.",
+        "Save 14.3 kg compared with going by petrol car together.",
+        "The coach takes 4 h 26 min and costs 53 PLN.",
         "It takes about 3.6 hours.",
         "Great for 2 people; it is 15 °C in Kraków.",
         "Model qwen2.5 says hi.",
@@ -199,5 +200,5 @@ def test_check_summary_raises_on_claim_or_number() -> None:
     check_summary("Take the train, the greenest option.", M.TRAIN, trip, None, None, reasons)
     with pytest.raises(SummaryMismatchError, match="False claim"):
         check_summary("The train is the cheapest.", M.TRAIN, trip, None, None, reasons)
-    with pytest.raises(SummaryMismatchError, match="Numbers not in the data: 7"):
-        check_summary("Only 7 kg of CO2.", M.TRAIN, trip, None, None, reasons)
+    with pytest.raises(SummaryMismatchError, match="Numbers not in the data: 64"):
+        check_summary("Only 64 kg of CO2.", M.TRAIN, trip, None, None, reasons)

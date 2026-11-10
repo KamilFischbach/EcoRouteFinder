@@ -20,7 +20,7 @@ def test_snapshot_is_plain_json() -> None:
     data = snapshot.to_snapshot(_result())
 
     assert json.loads(json.dumps(data)) == data
-    assert data["version"] == 1
+    assert data["version"] == 2
     assert data["highlights"] == {"greenest": "train", "fastest": "car_ev", "cheapest": "car_ev"}
 
 
@@ -47,5 +47,5 @@ def test_record_denormalises_summary_fields() -> None:
 
     assert record.greenest_mode == "train"
     assert record.greenest_co2_kg == 9.35
-    assert record.solo_car_co2_kg == 47.39
+    assert record.petrol_car_co2_kg == 23.69  # same group of 2 by petrol car, per person
     assert record.recommended_mode is None

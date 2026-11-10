@@ -7,7 +7,7 @@ import pytest
 
 from app.ai.advisor_agent import MAX_STEPS, AdvisorAgent, FinalAdvice, rule_based_advice
 from app.ai.llm_client import LLMError, LLMResponse
-from app.ai.prompts import ADVISOR_FINAL_V2, ADVISOR_SYSTEM_V3
+from app.ai.prompts import ADVISOR_FINAL_V3, ADVISOR_SYSTEM_V4
 from app.ai.tools import build_tool_registry
 from app.models.trip import TransportMode
 from app.services.comparison_models import ComparisonResult
@@ -71,15 +71,23 @@ def test_tool_call_then_result_then_final_answer() -> None:
     assert answer.model == "fake:1b"
     assert answer.recommended_mode is M.TRAIN
     assert answer.summary == "Take the train: it suits this trip well."
-    assert answer.reasons[0] == "9.3 kg CO₂ per person, 38.0 kg less than driving alone."
+    assert answer.reasons[0] == (
+        "9.3 kg CO₂ per person, 14.3 kg less than going by petrol car together."
+    )
     assert "Lowest CO₂ of the practical options." in answer.reasons
     assert [(t.tool, t.ok) for t in answer.tool_trace] == [("calculate_emissions", True)]
 
     first, second, last = client.requests
-    assert first["messages"][0]["content"] == ADVISOR_SYSTEM_V3
+    assert first["messages"][0]["content"] == ADVISOR_SYSTEM_V4
     context = first["messages"][1]["content"]
     assert '"user_preferences": "what if we were 4?"' in context
     assert '"weather_at_destination"' in context
+    # Ready-to-quote strings next to the raw values (train for 2 on 293.4 km).
+    assert '"duration": "3 h 37 min"' in context
+    assert '"cost": "91 PLN"' in context
+    assert '"co2": "9.3 kg"' in context
+    assert '"co2_saved_vs_petrol_car": "14.3 kg less"' in context
+    assert '"temperature": "15 °C"' in context
     assert {t["name"] for t in first["tools"]} == {
         "compare_travel_options",
         "get_weather",
@@ -88,10 +96,12 @@ def test_tool_call_then_result_then_final_answer() -> None:
     tool_msg = second["messages"][-1]
     assert tool_msg["role"] == "tool"
     assert tool_msg["tool_name"] == "calculate_emissions"
-    assert json.loads(tool_msg["content"])["co2_kg_per_person"] == pytest.approx(9.28)
+    tool_result = json.loads(tool_msg["content"])
+    assert tool_result["co2_kg_per_person"] == pytest.approx(9.28)
+    assert tool_result["quote"] == {"co2_per_person": "9.3 kg"}
     assert last["tools"] is None
     assert last["response_schema"] == FinalAdvice.model_json_schema()
-    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V2
+    assert last["messages"][-1]["content"] == ADVISOR_FINAL_V3
 
 
 def test_answer_without_tools() -> None:
@@ -182,7 +192,7 @@ def test_reasons_come_from_data_not_from_the_model() -> None:
     assert answer.used_llm is True
     assert "Coach is free!" not in answer.reasons
     assert answer.reasons[:2] == [
-        "11.6 kg CO₂ per person, 35.8 kg less than driving alone.",
+        "11.6 kg CO₂ per person, 12.1 kg less than going by petrol car together.",
         "About 4 h 26 min door to door, roughly 53 PLN per person.",
     ]
 
