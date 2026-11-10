@@ -51,7 +51,7 @@ Request flow: **router → service → repository → DB**. Each layer only call
 | `schemas/` | Input validation and output shape | Do I/O |
 
 More rules:
-- **Errors**: services raise `NotFoundError` (or a new `AppError` subclass in `core/errors.py`). Map new error types to status codes in `_DOMAIN_STATUS` in `api/error_handlers.py`. Every error response has the shape `{"error": {"code", "message", "details"}}`. Never return a different shape.
+- **Errors**: services raise `NotFoundError` (or a new `AppError` subclass in `core/errors.py`). Map new error types to status codes in `_DOMAIN_STATUS` in `api/error_handlers.py`. Every error response has the shape `{"error": {"code", "message", "details"}}`. Never return a different shape. Error codes are always `UPPER_SNAKE_CASE` (`NOT_FOUND`, `VALIDATION_ERROR`, `UNKNOWN_PLACE`, `SERVICE_UNAVAILABLE`).
 - **Validation** lives in `schemas/` (Pydantic `Field`/`StringConstraints`). Frontend limits in `src/features/trips/validation.ts` must stay in sync. Change both or neither.
 - **Config** only via `get_settings()`. No `os.environ` reads elsewhere and no hard-coded URLs or secrets.
 - **Time**: store UTC (`models.trip.utc_now`). `TripRead` re-attaches UTC because SQLite drops tzinfo.

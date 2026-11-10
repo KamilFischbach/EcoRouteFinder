@@ -126,7 +126,7 @@ ollama pull qwen2.5:7b
 | `PUT` | `/api/v1/trips/{id}` | Update the fields sent in the body |
 | `DELETE` | `/api/v1/trips/{id}` | Delete → `204` |
 
-Errors always use one shape: `{"error": {"code": "not_found", "message": "...", "details": ...}}`.
+Errors always use one shape: `{"error": {"code": "NOT_FOUND", "message": "...", "details": ...}}`.
 
 ## Running tests and checks
 

@@ -10,7 +10,7 @@ from typing import Any
 class AppError(Exception):
     """Base class for all expected, domain-level errors."""
 
-    code: str = "app_error"
+    code: str = "APP_ERROR"
 
     def __init__(self, message: str, details: Any = None) -> None:
         super().__init__(message)
@@ -21,7 +21,7 @@ class AppError(Exception):
 class NotFoundError(AppError):
     """Requested resource does not exist."""
 
-    code = "not_found"
+    code = "NOT_FOUND"
 
     def __init__(self, resource: str, resource_id: int | str) -> None:
         super().__init__(

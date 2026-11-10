@@ -43,7 +43,7 @@ async function toApiError(response: Response): Promise<ApiError> {
     const { code, message, details } = body.error;
     return new ApiError(response.status, code, message, details);
   }
-  return new ApiError(response.status, 'http_error', response.statusText || 'Request failed');
+  return new ApiError(response.status, 'HTTP_ERROR', response.statusText || 'Request failed');
 }
 
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -61,7 +61,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
-    throw new ApiError(0, 'network_error', 'Network request failed');
+    throw new ApiError(0, 'NETWORK_ERROR', 'Network request failed');
   }
 
   if (!response.ok) throw await toApiError(response);

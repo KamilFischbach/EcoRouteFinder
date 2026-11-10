@@ -59,7 +59,7 @@ def test_create_trip_invalid_returns_422(
 
     assert response.status_code == 422
     error = response.json()["error"]
-    assert error["code"] == "validation_error"
+    assert error["code"] == "VALIDATION_ERROR"
     assert [detail["field"] for detail in error["details"]] == [field]
 
 
@@ -117,7 +117,7 @@ def test_get_missing_trip_returns_404(client: TestClient) -> None:
     assert response.status_code == 404
     assert response.json() == {
         "error": {
-            "code": "not_found",
+            "code": "NOT_FOUND",
             "message": "Trip with id 999 not found",
             "details": {"resource": "Trip", "id": 999},
         }
@@ -163,7 +163,7 @@ def test_update_trip_invalid_returns_422(
     response = client.put(f"{TRIPS_URL}/{created['id']}", json=payload)
 
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_update_missing_trip_returns_404(client: TestClient) -> None:

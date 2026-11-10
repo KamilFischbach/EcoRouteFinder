@@ -39,7 +39,7 @@ describe('TripsPage list', () => {
     server.use(
       http.get(`${API_URL}/trips`, () =>
         HttpResponse.json(
-          { error: { code: 'internal_error', message: 'boom', details: null } },
+          { error: { code: 'INTERNAL_ERROR', message: 'boom', details: null } },
           { status: 500 },
         ),
       ),

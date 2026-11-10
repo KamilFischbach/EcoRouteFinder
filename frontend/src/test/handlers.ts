@@ -73,7 +73,7 @@ export const handlers = [
 function notFound(id: unknown) {
   return HttpResponse.json(
     {
-      error: { code: 'not_found', message: `Trip with id ${String(id)} not found`, details: null },
+      error: { code: 'NOT_FOUND', message: `Trip with id ${String(id)} not found`, details: null },
     },
     { status: 404 },
   );
