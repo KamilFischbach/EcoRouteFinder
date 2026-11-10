@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -72,6 +73,55 @@ def test_create_trip_missing_fields_returns_422(client: TestClient) -> None:
     assert fields == {"origin", "destination", "distance_km", "mode"}
 
 
+def test_create_trip_defaults_travel_date_to_today(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    body = _create(client, make_trip_payload())
+
+    assert body["travelled_on"] == datetime.now(UTC).date().isoformat()
+
+
+def test_create_trip_keeps_a_past_travel_date(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    body = _create(client, make_trip_payload(travelled_on="2026-03-14"))
+
+    assert body["travelled_on"] == "2026-03-14"
+
+
+@pytest.mark.parametrize("days_ahead", [2, 365])
+def test_create_trip_with_future_date_returns_422(
+    client: TestClient, make_trip_payload: MakePayload, days_ahead: int
+) -> None:
+    future = (datetime.now(UTC) + timedelta(days=days_ahead)).date().isoformat()
+
+    response = client.post(TRIPS_URL, json=make_trip_payload(travelled_on=future))
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_update_trip_with_future_date_returns_422(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    trip = _create(client, make_trip_payload())
+    future = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+
+    response = client.put(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": future})
+
+    assert response.status_code == 422
+
+
+def test_update_trip_rejects_null_travel_date(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    trip = _create(client, make_trip_payload())
+
+    response = client.put(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": None})
+
+    assert response.status_code == 422
+
+
 # --- read -------------------------------------------------------------------
 
 
@@ -85,6 +135,18 @@ def test_list_trips_returns_newest_first(
 
     assert response.status_code == 200
     assert [trip["id"] for trip in response.json()] == [second["id"], first["id"]]
+
+
+def test_list_trips_sorts_by_travel_date(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    older = _create(client, make_trip_payload(travelled_on="2026-05-01"))
+    newer = _create(client, make_trip_payload(travelled_on="2026-06-01"))
+    oldest = _create(client, make_trip_payload(travelled_on="2026-01-01"))
+
+    response = client.get(TRIPS_URL)
+
+    assert [t["id"] for t in response.json()] == [newer["id"], older["id"], oldest["id"]]
 
 
 def test_list_trips_filters_by_mode(client: TestClient, make_trip_payload: MakePayload) -> None:

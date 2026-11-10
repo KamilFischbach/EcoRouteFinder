@@ -13,6 +13,25 @@ export const FIELD_LIMITS = {
   tripDescriptionMaxLength: 500,
 } as const;
 
+/** Today's date in the user's time zone as `YYYY-MM-DD` (the format of `<input type="date">`). */
+export function localIsoDate(now: Date = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** Mirrors `TravelDate` in backend/app/schemas/trip.py: a real date, not in the future. */
+export function validateTravelDate(
+  raw: string,
+  today: string = localIsoDate(),
+): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || Number.isNaN(Date.parse(raw))) {
+    return 'Enter the date of the trip.';
+  }
+  if (raw > today) return 'The trip date cannot be in the future.';
+  return undefined;
+}
+
 /** Accepts both "12.5" and "12,5". */
 export function parseDecimal(raw: string): number {
   return Number(raw.trim().replace(',', '.'));

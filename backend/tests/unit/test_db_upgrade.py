@@ -1,6 +1,7 @@
-"""Upgrading a database created before snapshot version 2 keeps trips and history."""
+"""Upgrading an old database (snapshot version 1, trips without a travel date) keeps the data."""
 
 import json
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -10,9 +11,13 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session
 
 from app.db import build_engine, init_db
+from app.models.trip import TransportMode
 from app.repositories.comparison_repository import ComparisonRepository
+from app.repositories.trip_repository import TripRepository
+from app.schemas.trip import TripCreate
 from app.services import comparison_snapshot as snapshot
 from app.services.comparison_service import ComparisonService
+from app.services.trip_service import TripService
 from tests.fakes import FakeRouteProvider
 
 # Version 1 snapshot for 2 people: savings were measured against ONE person driving alone
@@ -43,6 +48,15 @@ CREATE TABLE comparison (
 """
 
 
+LEGACY_TRIP_TABLE = """
+CREATE TABLE trip (
+    id INTEGER PRIMARY KEY, origin VARCHAR(120) NOT NULL, destination VARCHAR(120) NOT NULL,
+    distance_km FLOAT NOT NULL, passengers INTEGER NOT NULL, mode VARCHAR(10) NOT NULL,
+    co2_kg FLOAT, note VARCHAR(500), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL
+)
+"""
+
+
 @pytest.fixture(name="legacy_engine")
 def legacy_engine_fixture(tmp_path: Path) -> Engine:
     """A file database shaped like one created before snapshot version 2."""
@@ -58,6 +72,14 @@ def legacy_engine_fixture(tmp_path: Path) -> Engine:
                 " :result, :advice, 'TRAIN', 9.35, 47.39, 'TRAIN', '2026-11-09 10:00:00')"
             ),
             {"result": json.dumps(V1_SNAPSHOT), "advice": json.dumps({"summary": "Old advice"})},
+        )
+        conn.execute(text(LEGACY_TRIP_TABLE))
+        conn.execute(
+            text(
+                "INSERT INTO trip (id, origin, destination, distance_km, passengers, mode,"
+                " co2_kg, note, created_at, updated_at) VALUES (1, 'Warszawa', 'Kraków', 293.4,"
+                " 1, 'TRAIN', 9.07, NULL, '2026-10-03 22:30:00', '2026-10-03 22:30:00')"
+            )
         )
     return engine
 
@@ -117,3 +139,22 @@ def test_init_db_upgrade_runs_only_once(legacy_engine: Engine) -> None:
         assert record is not None
         assert record.petrol_car_co2_kg == 23.69
         assert record.result["version"] == snapshot.SNAPSHOT_VERSION
+
+
+def test_init_db_gives_old_trips_their_save_date_as_travel_date(legacy_engine: Engine) -> None:
+    init_db(legacy_engine)
+    init_db(legacy_engine)  # idempotent
+
+    with Session(legacy_engine) as session:
+        repository = TripRepository(session)
+        trip = repository.get(1)
+        assert trip is not None
+        assert trip.travelled_on == date(2026, 10, 3)
+        assert trip.co2_kg == 9.07
+        service = TripService(repository)
+        new = service.create_trip(
+            TripCreate(origin="A", destination="B", distance_km=10, mode=TransportMode.BIKE)
+        )
+        assert [t.id for t in service.list_trips()] == [new.id, 1]
+    indexes = {i["name"] for i in inspect(legacy_engine).get_indexes("trip")}
+    assert "ix_trip_travelled_on" in indexes

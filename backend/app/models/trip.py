@@ -1,6 +1,6 @@
 """`Trip` table: a saved route in the user's history."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 
 from sqlmodel import Field, SQLModel
@@ -19,6 +19,10 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+def utc_today() -> date:
+    return utc_now().date()
+
+
 class Trip(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     origin: str = Field(max_length=120)
@@ -29,5 +33,7 @@ class Trip(SQLModel, table=True):
     # Filled by services/emissions.py once implemented; never by an LLM.
     co2_kg: float | None = None
     note: str | None = Field(default=None, max_length=500)
+    # The day of the journey (chosen by the user); statistics group trips by it.
+    travelled_on: date = Field(default_factory=utc_today, index=True)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)

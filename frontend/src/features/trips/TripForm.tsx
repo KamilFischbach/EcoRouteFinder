@@ -4,11 +4,12 @@ import { Button } from '@/components/Button';
 import { FormField } from '@/components/FormField';
 import { cn } from '@/lib/cn';
 import { inputClass } from '@/lib/styles';
+import { localIsoDate } from '@/lib/validators';
 import { MODE_LABELS, TRANSPORT_MODES, type TripInput } from '@/types/trip';
 
 import {
-  EMPTY_TRIP_FORM,
   TRIP_LIMITS,
+  emptyTripForm,
   hasErrors,
   toTripInput,
   validateTrip,
@@ -26,14 +27,14 @@ interface TripFormProps {
 }
 
 export function TripForm({
-  initialValues = EMPTY_TRIP_FORM,
+  initialValues,
   submitLabel,
   isSubmitting = false,
   serverError,
   onSubmit,
   onCancel,
 }: TripFormProps) {
-  const [values, setValues] = useState(initialValues);
+  const [values, setValues] = useState(() => initialValues ?? emptyTripForm());
   const [errors, setErrors] = useState<TripFormErrors>({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -117,6 +118,19 @@ export function TripForm({
           />
         </FormField>
       </div>
+
+      <FormField label="Date of travel" htmlFor="trip-travelledOn" error={errors.travelledOn}>
+        <input
+          id="trip-travelledOn"
+          type="date"
+          max={localIsoDate()}
+          className={inputClass(Boolean(errors.travelledOn))}
+          value={values.travelledOn}
+          aria-invalid={Boolean(errors.travelledOn)}
+          aria-describedby={describedBy('travelledOn')}
+          onChange={(event) => update('travelledOn', event.target.value)}
+        />
+      </FormField>
 
       <fieldset aria-describedby={describedBy('mode')}>
         <legend className="mb-1.5 text-sm font-medium text-stone-700">Transport mode</legend>

@@ -88,7 +88,7 @@ More rules:
 - **Config** only via `get_settings()`. No `os.environ` reads elsewhere and no hard-coded URLs or secrets.
 - **Time**: store UTC (`models.trip.utc_now`). `TripRead` re-attaches UTC because SQLite drops tzinfo.
 - **New endpoint checklist**: DTOs in `schemas/` → repository method → service method → router in `api/v1/` → register in `api/v1/__init__.py` → API test + unit test.
-- **No migration tool yet**: tables are created by `init_db()` at startup, which also runs one hand-written, idempotent upgrade (`_upgrade_comparisons_to_v2` in `db.py`: column rename + `comparison_snapshot.upgrade_snapshot`). Don't add more steps like it: introduce Alembic before the next schema change that must keep data. For throwaway local data, deleting `backend/ecoroute.db` is fine.
+- **No migration tool (by decision, no Alembic)**: tables are created by `init_db()` at startup, which then runs small hand-written, idempotent upgrade steps in `db.py` (`_upgrade_comparisons_to_v2`: column rename + `comparison_snapshot.upgrade_snapshot`; `_add_trip_travelled_on`: new column filled from `created_at`). A schema change that must keep data adds one such step plus a test in `tests/unit/test_db_upgrade.py` that starts from the old table shape. Never ask users to delete their database.
 
 ## 4. Frontend architecture rules
 

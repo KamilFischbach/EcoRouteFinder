@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDuration, formatRelativeTime } from './format';
+import { formatDay, formatDuration, formatRelativeTime } from './format';
 
 describe('formatRelativeTime', () => {
   const now = Date.parse('2026-11-10T12:00:00Z');
@@ -23,5 +23,11 @@ describe('formatDuration', () => {
     [95, '1 h 35 min'],
   ])('%i -> %s', (minutes, expected) => {
     expect(formatDuration(minutes)).toBe(expected);
+  });
+});
+
+describe('formatDay', () => {
+  it('formats a calendar date without shifting it by the time zone', () => {
+    expect(formatDay('2026-03-01')).toBe('1 Mar 2026');
   });
 });

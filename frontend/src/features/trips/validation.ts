@@ -4,7 +4,9 @@ import {
   parseDecimal,
   validateDistance,
   validatePassengers,
+  localIsoDate,
   validatePlace,
+  validateTravelDate,
 } from '@/lib/validators';
 import type { TransportMode, Trip, TripInput } from '@/types/trip';
 
@@ -19,18 +21,23 @@ export interface TripFormValues {
   passengers: string;
   mode: TransportMode | '';
   note: string;
+  travelledOn: string;
 }
 
 export type TripFormErrors = Partial<Record<keyof TripFormValues, string>>;
 
-export const EMPTY_TRIP_FORM: TripFormValues = {
-  origin: '',
-  destination: '',
-  distanceKm: '',
-  passengers: '1',
-  mode: '',
-  note: '',
-};
+/** A fresh form; the trip date starts as today. */
+export function emptyTripForm(today: string = localIsoDate()): TripFormValues {
+  return {
+    origin: '',
+    destination: '',
+    distanceKm: '',
+    passengers: '1',
+    mode: '',
+    note: '',
+    travelledOn: today,
+  };
+}
 
 export function validateTrip(values: TripFormValues): TripFormErrors {
   return compactErrors({
@@ -43,6 +50,7 @@ export function validateTrip(values: TripFormValues): TripFormErrors {
       values.note.trim().length > FIELD_LIMITS.noteMaxLength
         ? `Note can be at most ${FIELD_LIMITS.noteMaxLength} characters.`
         : undefined,
+    travelledOn: validateTravelDate(values.travelledOn),
   });
 }
 
@@ -56,6 +64,7 @@ export function toTripInput(values: TripFormValues): TripInput {
     passengers: Number(values.passengers),
     mode: values.mode,
     note: values.note.trim() || null,
+    travelled_on: values.travelledOn,
   };
 }
 
@@ -67,5 +76,6 @@ export function toFormValues(trip: Trip): TripFormValues {
     passengers: String(trip.passengers),
     mode: trip.mode,
     note: trip.note ?? '',
+    travelledOn: trip.travelled_on,
   };
 }

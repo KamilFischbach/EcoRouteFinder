@@ -10,7 +10,9 @@ class TripRepository:
         self._session = session
 
     def list_trips(self, mode: TransportMode | None = None) -> list[Trip]:
-        statement = select(Trip).order_by(col(Trip.created_at).desc(), col(Trip.id).desc())
+        statement = select(Trip).order_by(
+            col(Trip.travelled_on).desc(), col(Trip.created_at).desc(), col(Trip.id).desc()
+        )
         if mode is not None:
             statement = statement.where(col(Trip.mode) == mode)
         return list(self._session.exec(statement).all())

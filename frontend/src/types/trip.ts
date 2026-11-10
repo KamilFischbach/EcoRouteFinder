@@ -22,6 +22,8 @@ export interface Trip {
   mode: TransportMode;
   co2_kg: number | null;
   note: string | null;
+  /** Day of the journey, `YYYY-MM-DD`. */
+  travelled_on: string;
   created_at: string;
   updated_at: string;
 }
@@ -34,4 +36,6 @@ export interface TripInput {
   passengers: number;
   mode: TransportMode;
   note: string | null;
+  /** `YYYY-MM-DD`; cannot be in the future. */
+  travelled_on: string;
 }

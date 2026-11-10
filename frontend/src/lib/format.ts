@@ -4,6 +4,7 @@ const moneyFormat = new Intl.NumberFormat('en-GB', {
   maximumFractionDigits: 0,
 });
 const dateFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
+const dayFormat = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: 'UTC' });
 
 export function formatDistance(km: number): string {
   return `${numberFormat.format(km)} km`;
@@ -11,6 +12,11 @@ export function formatDistance(km: number): string {
 
 export function formatCo2(kg: number | null): string {
   return kg === null ? '—' : `${numberFormat.format(kg)} kg`;
+}
+
+/** Formats a calendar date (`YYYY-MM-DD`) without shifting it across time zones. */
+export function formatDay(isoDate: string): string {
+  return dayFormat.format(new Date(`${isoDate}T00:00:00Z`));
 }
 
 export function formatDate(iso: string): string {

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TripForm } from './TripForm';
 import { toFormValues } from './validation';
+import { localIsoDate } from '@/lib/validators';
 import { tripFixtures } from '@/test/handlers';
 
 function setup(props: Partial<Parameters<typeof TripForm>[0]> = {}) {
@@ -72,6 +73,7 @@ describe('TripForm', () => {
       passengers: 3,
       mode: 'train',
       note: null,
+      travelled_on: localIsoDate(),
     });
   });
 
@@ -82,5 +84,40 @@ describe('TripForm', () => {
     expect(screen.getByLabelText('From')).toHaveValue('Warszawa');
     expect(screen.getByLabelText('Distance (km)')).toHaveValue('340');
     expect(screen.getByLabelText('Train')).toBeChecked();
+    expect(screen.getByLabelText('Date of travel')).toHaveValue('2026-11-07');
+  });
+
+  it('starts with today as the travel date and does not allow future dates', () => {
+    setup();
+
+    const date = screen.getByLabelText('Date of travel');
+    expect(date).toHaveAttribute('type', 'date');
+    expect(date).toHaveValue(localIsoDate());
+    expect(date).toHaveAttribute('max', localIsoDate());
+  });
+
+  it('rejects a travel date in the future', async () => {
+    const { onSubmit, user, submit } = setup();
+
+    const date = screen.getByLabelText('Date of travel');
+    await user.clear(date);
+    await user.type(date, '2999-01-01');
+    await submit();
+
+    expect(screen.getByText('The trip date cannot be in the future.')).toBeInTheDocument();
+    expect(date).toHaveAttribute('aria-invalid', 'true');
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('submits a chosen past travel date', async () => {
+    const trip = tripFixtures[0]!;
+    const { onSubmit, user, submit } = setup({ initialValues: toFormValues(trip) });
+
+    const date = screen.getByLabelText('Date of travel');
+    await user.clear(date);
+    await user.type(date, '2026-10-01');
+    await submit();
+
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ travelled_on: '2026-10-01' }));
   });
 });

@@ -1,6 +1,6 @@
 import { Button } from '@/components/Button';
 import { cn } from '@/lib/cn';
-import { formatCo2, formatDate, formatDistance } from '@/lib/format';
+import { formatCo2, formatDay, formatDistance } from '@/lib/format';
 import type { Trip } from '@/types/trip';
 
 import { ModeBadge } from './ModeBadge';
@@ -55,7 +55,7 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                 <td className="px-4 py-3.5 sm:pl-6">
                   <div className="font-medium text-stone-900">{route}</div>
                   <div className="mt-0.5 text-xs text-stone-500">
-                    {formatDate(trip.created_at)}
+                    {formatDay(trip.travelled_on)}
                     <span className="md:hidden">
                       {' · '}
                       {formatDistance(trip.distance_km)} · {trip.passengers}{' '}

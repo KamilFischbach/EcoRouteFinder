@@ -26,9 +26,10 @@ def init_db(bind: Engine = engine) -> None:
     SQLModel.metadata.create_all(bind)
     with bind.begin() as conn:
         _upgrade_comparisons_to_v2(conn)
+        _add_trip_travelled_on(conn)
 
 
-# TODO(db): replace these hand-written steps with Alembic before the next schema change.
+# Schema changes that must keep data are small, idempotent steps here (no migration tool).
 def _upgrade_comparisons_to_v2(conn: Connection) -> None:
     """Snapshot version 2 renamed `solo_car_co2_kg` (one person driving alone) to
     `petrol_car_co2_kg` (the same group by petrol car). Converts old rows in place, keeping
@@ -54,6 +55,17 @@ def _upgrade_comparisons_to_v2(conn: Connection) -> None:
                 "id": row_id,
             },
         )
+
+
+def _add_trip_travelled_on(conn: Connection) -> None:
+    """Trips gained `travelled_on`. Old rows get the day they were saved. Safe to run on every
+    start: it does nothing once the column exists."""
+    columns = {column["name"] for column in inspect(conn).get_columns("trip")}
+    if "travelled_on" in columns:
+        return
+    conn.execute(text("ALTER TABLE trip ADD COLUMN travelled_on DATE"))
+    conn.execute(text("UPDATE trip SET travelled_on = date(created_at)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_travelled_on ON trip (travelled_on)"))
 
 
 def get_session() -> Iterator[Session]:
