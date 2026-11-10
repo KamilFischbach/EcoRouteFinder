@@ -7,7 +7,7 @@ Instructions for AI coding agents (and humans) working on **EcoRoute**. Read thi
 EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. Planned next: a dashboard with charts, a map, an MCP server on top of `ai/tools.py`.
 
 Status:
-- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history, "Describe your trip" and EcoAdvisor card; AI status badge.
+- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history and EcoAdvisor card; trip assistant (free text → Auto: compare + advice in one go / Manual: fill the form, with parsed preferences); AI status badge.
 - **Not implemented yet:** the Dashboard page and the map. Do not treat them as implemented.
 
 **All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values (`co2_saved_vs_petrol_car_kg`, `petrol_car_co2_kg`) compare against **the same group going together by petrol car**, per person, so the petrol car itself saves 0. Keep it that way. Numbers shown to users or the LLM as text are formatted only by `services/formatting.py` (same rounding as `frontend/src/lib/format.ts`).
@@ -36,6 +36,7 @@ backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
     comparison_service.py  compute() (no DB) + create/list/get/delete/save_advice (history)
     comparison_snapshot.py The ONLY place that maps records <-> snapshots <-> dataclasses
     weather.py             Open-Meteo WeatherProvider, bad_for_cycling thresholds
+    formatting.py          Ready-to-quote number strings ("5 h 54 min", "152 PLN", "15.7 kg")
     advice_service.py      Runs the advisor for a saved comparison and stores the answer
     trip_service.py        Trip use cases, fills co2_kg
   app/ai/
@@ -55,8 +56,11 @@ frontend/                Vite + React 19 + TypeScript (strict) + Tailwind 4
   src/api/               fetch client (apiFetch, ApiError), endpoint functions, error -> message
   src/components/        Shared, domain-agnostic UI (Button, Card, ConfirmDialog, Layout, ...)
   src/features/trips/    Trip feature: hooks (TanStack Query), form, validation, table
-  src/features/compare/  Compare feature: comparisonKeys + hooks, form, DescribeTrip, results, OptionCard,
+  src/features/compare/  Compare feature: comparisonKeys + hooks, form, results, OptionCard,
                          Co2Chart, RecentComparisons, EcoAdvisorCard
+  src/features/assistant/ Trip assistant: TripAssistant (text box, Auto/Manual, step progress),
+                         useTripAssistant (runs draft -> comparison -> advice), assistantMachine
+                         (pure reducer + step statuses), assistantMode (localStorage)
   src/features/ai/       AI status badge + useHealthQuery
   src/pages/             Route-level components: TripsPage, ComparePage (lazy-loaded), DashboardPage (placeholder)
   src/lib/               Small helpers: cn, format, styles, validators (shared field rules)
@@ -90,6 +94,7 @@ More rules:
 
 - Components are **function components** with typed props (`interface XxxProps`). No class components, no default exports (except config files).
 - **Data fetching only through hooks** in `features/<feature>/useXxx.ts` built on TanStack Query. Components never call `fetch` or `apiFetch` directly.
+- **Multi-step AI flows are orchestrated in a hook, not in components and not in a new backend endpoint.** `useTripAssistant` chains the existing mutations (draft → comparison → advice); the step logic is a pure reducer in a `.ts` file with unit tests. Results render as soon as the comparison exists; advice arrives on its own, and its failure never hides the results.
 - HTTP goes through `src/api/client.ts` (`apiFetch`). Base URL comes from `VITE_API_URL`. Endpoint functions live in `src/api/<resource>.ts`.
 - Query keys come from a key factory (`tripKeys`). Mutations invalidate `tripKeys.all` instead of hand-editing the cache.
 - Every data view handles **loading, empty and error** states (`Spinner`, `EmptyState`, `ErrorState`). User-facing error text comes from `getErrorMessage()`.
@@ -109,7 +114,7 @@ More rules:
 6. Tool calls are bounded (`MAX_STEPS`) and tool arguments are validated before execution.
 7. Model and host come from settings (`OLLAMA_HOST`, `OLLAMA_MODEL`, default `qwen2.5:7b`). Respect `AI_ENABLED=false`.
 8. **Tools are defined only in `app/ai/tools.py`** (the registry: name + description + Pydantic args model + handler). Handlers are thin wrappers around services: no maths, no DB writes, no FastAPI. A tool failure returns `{"error": ...}` to the model, never an exception. The same registry will back the MCP server, so keep it framework-free.
-9. **Ground every AI answer in data.** A recommendation must be a `practical` option of the comparison (and respect luggage/weather rules in `check_grounding`); extracted places must occur in the user's text. The advisor's reasons (numbers, cheapest/fastest/greenest) are generated by `advice_facts.build_reasons`, never by the LLM; the LLM's summary is checked by `check_summary` (false superlatives/comparatives or numbers not in the data → fallback). Add a check whenever you add an AI output that the UI trusts.
+9. **Ground every AI answer in data.** A recommendation must be a `practical` option of the comparison (and respect the luggage/equipment/comfort/weather rules of `suitable_options`, checked in `check_grounding`); numbers the model may quote come as ready-made strings from `services/formatting.py`; extracted places must occur in the user's text. The advisor's reasons (numbers, cheapest/fastest/greenest) are generated by `advice_facts.build_reasons`, never by the LLM; the LLM's summary is checked by `check_summary` (false superlatives/comparatives or numbers not in the data → fallback). Add a check whenever you add an AI output that the UI trusts.
 10. **Keep AI answers transparent:** return `used_llm`, `model` and a tool trace so the UI can show "AI" vs "Rule-based" and "How I got this".
 11. Ollama API facts (checked against docs/api.md and a 0.9.6 server): `tool_calls[].function.arguments` is an object, tool results go back as `{"role": "tool", "content", "tool_name"}`, and `format` takes a JSON schema. Don't send `tools` and `format` in the same call.
 

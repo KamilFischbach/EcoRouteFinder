@@ -14,8 +14,8 @@ A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and ac
 - [x] Mode comparison: time, cost and kg CO₂ per person for six modes, with Greenest / Fastest / Cheapest picks, a CO₂ chart and one-click "Save trip"
 - [x] Real routes from OpenStreetMap (Nominatim + OSRM) with an offline fallback estimate
 - [x] Comparison history: every comparison is saved as a snapshot, linkable at `/compare/:id`
-- [x] "Describe your trip": free text (English or Polish) fills in the compare form, via a local LLM or rules
-- [x] EcoAdvisor: a tool-calling agent that recommends one option, checks the weather and explains why, with a rule-based fallback
+- [x] Trip assistant: describe the trip once (English or Polish); **Auto** compares and asks EcoAdvisor in one go, **Manual** only fills in the form
+- [x] EcoAdvisor: a tool-calling agent that recommends one option, checks the weather and explains why, taking your preferences (luggage, skis, comfort, budget, speed) into account, with a rule-based fallback
 - [x] REST API with validation and a consistent error format
 - [ ] Dashboard: CO₂ over time, kg saved, eco-points _(coming soon)_
 
@@ -56,7 +56,8 @@ frontend/
     api/               # fetch client, endpoint functions
     components/        # shared UI components
     features/trips/    # trip form, table, validation, TanStack Query hooks
-    features/compare/  # compare form, describe-your-trip, results, CO2 chart, history, EcoAdvisor
+    features/assistant/ # trip assistant: text box, Auto/Manual switch, step progress, useTripAssistant hook
+    features/compare/  # compare form, results, CO2 chart, history, EcoAdvisor card
     features/ai/       # AI status badge (polls /health)
     lib/               # formatting, shared validators, helpers
     pages/             # Trips, Compare, Dashboard (placeholder)
@@ -114,7 +115,7 @@ ollama list                            # should show qwen2.5:7b
 
 Ollama runs in the background on `http://localhost:11434`. Restart nothing: the backend checks for the model every 30 s, and the header switches to **AI online · qwen2.5:7b**.
 
-**Without Ollama the app still works.** The header shows **AI offline (rule-based)**, "Describe your trip" uses regex rules, and EcoAdvisor uses a rule-based recommender. Set `AI_ENABLED=false` to never contact Ollama. A 7B model on CPU can take 10-30 s per answer; with a GPU it's 1-3 s (the first call also loads the model).
+**Without Ollama the app still works.** The header shows **AI offline (rule-based)**, the trip assistant uses regex rules, and EcoAdvisor uses a rule-based recommender. Set `AI_ENABLED=false` to never contact Ollama. A 7B model on CPU can take 10-30 s per answer; with a GPU it's 1-3 s (the first call also loads the model).
 
 ### Configuration
 
@@ -151,7 +152,7 @@ Ollama runs in the background on `http://localhost:11434`. Restart nothing: the 
 | `GET` | `/api/v1/comparisons/{id}` | A saved comparison (snapshot + advice) → `404` if missing |
 | `DELETE` | `/api/v1/comparisons/{id}` | Delete → `204` |
 | `POST` | `/api/v1/comparisons/{id}/advice` | Ask EcoAdvisor, optional `{preferences}` (max 300 chars). Always `200` (LLM or rules); stored with the comparison |
-| `POST` | `/api/v1/trip-drafts` | `{text}` (1-500 chars) → form pre-fill `{origin, destination, passengers, mode, missing_fields, parsed_by}`. Stores nothing |
+| `POST` | `/api/v1/trip-drafts` | `{text}` (1-500 chars) → form pre-fill `{origin, destination, passengers, mode, preferences, missing_fields, parsed_by}`. Stores nothing |
 
 Errors always use one shape: `{"error": {"code": "NOT_FOUND", "message": "...", "details": ...}}`. Codes are upper case: `NOT_FOUND`, `VALIDATION_ERROR`, `UNKNOWN_PLACE` (422), `ROUTE_TOO_SHORT` (422), `SERVICE_UNAVAILABLE` (503), `INTERNAL_ERROR`.
 
@@ -159,7 +160,7 @@ Errors always use one shape: `{"error": {"code": "NOT_FOUND", "message": "...", 
 
 All the maths is in [`backend/app/services/emissions.py`](backend/app/services/emissions.py); every factor and its source is in [`transport_factors.py`](backend/app/services/transport_factors.py). No LLM is involved.
 
-**Everything is per person.** For cars, the vehicle's CO₂ and cost are split between the passengers. Train, coach and plane factors already apply per passenger-km, so they don't depend on group size. "Saved vs driving alone" compares each option with one person in a petrol car on the same route.
+**Everything is per person.** For cars, the vehicle's CO₂ and cost are split between the passengers. Train, coach and plane factors already apply per passenger-km, so they don't depend on group size. **CO₂ saved** (`co2_saved_vs_petrol_car_kg`) compares each option with **the same group going together by petrol car**, per person: for 2 people on 293 km the petrol car is 23.7 kg each, the train 9.3 kg, so the train saves 14.3 kg per person. The petrol car itself is the baseline (0), and a fuller car shrinks the saving, because car emissions are shared and train emissions aren't. Numbers shown as text (UI, advisor reasons, the strings the LLM quotes) are rounded in one place, `services/formatting.py`, the same way as the UI: "5 h 54 min", "152 PLN", "15.7 kg".
 
 | Mode | CO₂ factor | Source |
 |---|---|---|
@@ -195,9 +196,53 @@ Public Nominatim and OSRM servers are fine for a demo but not for heavy traffic.
 
 ## Comparison history and snapshots
 
-Every comparison is saved (`comparison` table) and gets a linkable URL, `/compare/:id`. The result is stored as a **versioned JSON snapshot** of the options and highlights, because emission factors may change later and the history should show what you saw at the time. Opening a saved comparison reads the snapshot; nothing is recomputed. A few values (greenest mode and its CO₂, solo-car CO₂, EcoAdvisor's pick) are also stored as plain columns, so the "Recent comparisons" list stays cheap. EcoAdvisor's latest answer is stored with its comparison.
+Every comparison is saved (`comparison` table) and gets a linkable URL, `/compare/:id`. The result is stored as a **versioned JSON snapshot** of the options and highlights, because emission factors may change later and the history should show what you saw at the time. Opening a saved comparison reads the snapshot; nothing is recomputed. A few values (greenest mode and its CO₂, the petrol-car baseline, EcoAdvisor's pick) are also stored as plain columns, so the "Recent comparisons" list stays cheap. EcoAdvisor's latest answer is stored with its comparison.
 
-The table is created by `init_db()` at startup, so an existing `ecoroute.db` just gains the new table and keeps its trips.
+The table is created by `init_db()` at startup. There are no migrations yet: snapshot version 2 renamed the savings field and the `petrol_car_co2_kg` column, so **delete `backend/ecoroute.db` after updating from an older version** (it is recreated on the next start).
+
+## Trip assistant
+
+The Compare page starts with one box: describe the trip the way you'd tell a friend, in English or Polish, e.g. *"I want to go skiing with my girlfriend from Tczew to Karpacz. We have ski equipment and comfort matters to us."*
+
+| Mode | What happens |
+|---|---|
+| **Auto** (default) | Reads the trip, compares all six ways to travel, opens the result at `/compare/:id` and asks EcoAdvisor with your preferences, all in one go. If something required is missing (say, the destination), it stops, fills in what it found, focuses the missing field and tells you what to add; pressing **Compare** carries on. |
+| **Manual** | Only fills in the form (route, group size and **What matters to you?**) and highlights it. You check it and press **Compare**. |
+
+The switch remembers your choice in the browser. Whichever way a comparison starts (Auto, Manual, or typing into the form yourself), EcoAdvisor is asked automatically with the "What matters to you?" text. Opening a saved comparison from the history doesn't call the model again; it shows the stored advice or an **Ask EcoAdvisor** button.
+
+A progress bar shows three steps, each *waiting*, *in progress*, *done*, *skipped* or *failed*: **Understanding your trip** (with an **AI** or **rules** badge), **Comparing 6 ways to travel**, **Asking EcoAdvisor**.
+
+**How it fits together:** the parser turns text into structured fields and preferences, the deterministic comparison does every calculation, and the advisor explains and picks. The LLM is never asked to compute a number.
+
+**Why the frontend runs the steps** (in the `useTripAssistant` hook, over the existing endpoints, with no orchestration endpoint):
+
+- **Results right away, advice when it's ready.** The comparison takes about a second; a local model may need ~20 s. Results render as soon as the comparison is saved, and the advice card fills in when the model answers.
+- **A slow or failed model never hides the numbers.** If advice fails or times out (120 s), the card shows the error and **Try again**; the comparison stays on screen.
+- **Each step stays a small, testable endpoint**, and the flow itself is a pure reducer (`assistantMachine.ts`) with unit tests.
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant UI as Compare page (useTripAssistant)
+    participant D as POST /trip-drafts
+    participant C as POST /comparisons
+    participant A as POST /comparisons/{id}/advice
+    U->>UI: Describe the trip, press "Plan my trip"
+    UI->>D: {text}
+    D-->>UI: origin, destination, passengers, preferences, missing_fields, parsed_by
+    alt Manual, or a required field is missing
+        UI-->>U: Fill in the form (focus the first missing field) and wait for Compare
+        U->>UI: Compare
+    end
+    UI->>C: {origin, destination, passengers}
+    C-->>UI: saved comparison (deterministic numbers)
+    UI-->>U: Navigate to /compare/:id, show results now
+    UI->>A: {preferences}
+    Note over UI,A: Card shows "EcoAdvisor is thinking…"
+    A-->>UI: recommended mode, summary, reasons (LLM or rules)
+    UI-->>U: Advice card on top, pick highlighted in the chart and the cards
+```
 
 ## AI features
 
@@ -205,7 +250,7 @@ Two features use a **local LLM through Ollama**. Neither depends on it: each has
 
 | Feature | LLM does | Code does |
 |---|---|---|
-| "Describe your trip" (`POST /trip-drafts`) | Extracts origin, destination, passengers, mode from English or Polish text (structured output) | Validates the JSON with Pydantic, checks both places occur in the text, falls back to regex rules |
+| Trip parser (`POST /trip-drafts`) | Extracts origin, destination, passengers, mode and a short English summary of preferences from English or Polish text (structured output) | Validates the JSON with Pydantic, checks both places occur in the text and that preferences contain no invented numbers, falls back to regex rules (preferences = the fragments with keywords such as luggage, ski, comfort, cheap, bagaż, narty, wygoda, tanio) |
 | EcoAdvisor (`POST /comparisons/{id}/advice`) | Chooses tools, picks one option, writes a short summary | Runs the tools (comparison, emissions, weather), checks the pick, writes the reasons from the data, checks the summary, falls back to rules |
 
 **Architecture**
@@ -213,9 +258,10 @@ Two features use a **local LLM through Ollama**. Neither depends on it: each has
 - `LLMClient` is a Protocol; `OllamaClient` implements it with plain `httpx` calls to `/api/chat` (`stream: false`, JSON-schema `format`, `tools`). Tests use a scripted fake, so the test suite never needs Ollama.
 - **Tool registry** (`ai/tools.py`): `compare_travel_options`, `get_weather`, `calculate_emissions`. Each tool = Pydantic argument model + thin handler around a service. The JSON schema for the LLM comes from the model, arguments are validated before running, and errors go back to the LLM as `{"error": ...}` instead of crashing.
 - **Agent loop** (`ai/advisor_agent.py`): system prompt + saved comparison + destination weather + your preferences → up to 4 rounds of tool calls → a separate final call with a JSON schema (`recommended_mode`, `summary`).
-- **Grounding check:** the pick must be a *practical* option of this comparison, and never the bike with luggage or in bad weather.
+- **Grounding check:** the pick must be a *practical* option of this comparison, and never the bike with luggage, skis or other bulky equipment, when comfort matters, or in bad weather. On trips over 200 km (`LONG_TRIP_KM`) with bulky equipment or a wish for comfort, the coach is ranked behind the train.
+- **Quotable numbers:** next to raw values, the context and tool results carry ready-made strings ("5 h 54 min", "152 PLN", "15.7 kg") and the prompts (`ADVISOR_SYSTEM_V4`, `ADVISOR_FINAL_V3`) tell the model to copy them verbatim, so the summary matches the cards.
 - **Reasons from data, summary checked** (`ai/advice_facts.py`): every reason under the summary (CO₂, time, cost, "cheapest / fastest / lowest CO₂ of the practical options", skipped bike, a note when the pick isn't the cheapest/fastest you asked for) is generated by code. The model only writes the one- or two-sentence summary, and that is checked: superlatives and comparatives ("cheapest", "one of the fastest", "greener than the car", also in Polish) must match the data, and every number must appear in the context or a tool result. Any mismatch → rule-based fallback.
-- **Fallback:** any failure (Ollama off, timeout, too many steps, invalid JSON, failed check) → rule-based advice: the greenest practical option, bike skipped in rain/wind/cold/heat, simple "cheapest" / "fastest" / "luggage" keywords (English and Polish), templated text.
+- **Fallback:** any failure (Ollama off, timeout, too many steps, invalid JSON, failed check) → rule-based advice: the greenest practical option, bike skipped in rain/wind/cold/heat, simple "cheapest" / "fastest" / "luggage" / "skis" / "comfort" keywords (English and Polish), templated text.
 - All prompts live in `ai/prompts.py` as versioned constants. The UI shows whether an answer came from **AI · qwen2.5:7b** or **Rule-based (AI offline)**, plus the tool trace under "How I got this".
 
 ```mermaid
