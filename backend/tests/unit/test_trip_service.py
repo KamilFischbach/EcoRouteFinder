@@ -27,12 +27,23 @@ def _new_trip(**overrides: object) -> TripCreate:
     return TripCreate.model_validate(data)
 
 
-def test_create_trip_persists_and_leaves_co2_empty(service: TripService) -> None:
+def test_create_trip_persists_with_per_person_co2(service: TripService) -> None:
     trip = service.create_trip(_new_trip())
 
     assert trip.id is not None
-    assert trip.co2_kg is None
+    # Train, 270 km x 0.03092 kg/pkm.
+    assert trip.co2_kg == pytest.approx(8.35)
     assert service.get_trip(trip.id) == trip
+
+
+def test_update_trip_recalculates_co2(service: TripService) -> None:
+    trip = service.create_trip(_new_trip())
+    assert trip.id is not None
+
+    updated = service.update_trip(trip.id, TripUpdate(mode=TransportMode.CAR_PETROL, passengers=2))
+
+    # Petrol car shared by 2: 270 km x 0.16152 kg/km / 2.
+    assert updated.co2_kg == pytest.approx(21.81)
 
 
 def test_update_trip_applies_partial_changes_and_bumps_updated_at(service: TripService) -> None:

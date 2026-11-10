@@ -28,7 +28,8 @@ def test_create_trip_returns_201_with_body(
     assert body["id"] > 0
     assert body["origin"] == "Warszawa"
     assert body["mode"] == "train"
-    assert body["co2_kg"] is None
+    # Train, per person: 340 km x 0.03092 kg/pkm.
+    assert body["co2_kg"] == pytest.approx(10.51)
     assert body["created_at"].endswith("Z")
 
 
@@ -140,6 +141,18 @@ def test_update_trip_changes_only_sent_fields(
     assert body["mode"] == "coach"
     assert body["origin"] == created["origin"]
     assert body["updated_at"] >= created["updated_at"]
+
+
+def test_update_trip_recalculates_co2(client: TestClient, make_trip_payload: MakePayload) -> None:
+    created = _create(client, make_trip_payload())
+
+    response = client.put(
+        f"{TRIPS_URL}/{created['id']}", json={"mode": "car_petrol", "distance_km": 100}
+    )
+
+    assert response.status_code == 200
+    # Petrol car shared by 2 passengers: 100 km x 0.16152 kg/km / 2.
+    assert response.json()["co2_kg"] == pytest.approx(8.08)
 
 
 def test_update_trip_can_clear_note(client: TestClient, make_trip_payload: MakePayload) -> None:

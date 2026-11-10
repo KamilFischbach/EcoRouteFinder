@@ -9,8 +9,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
+from app.api.deps import get_route_provider
 from app.db import get_session, init_db
 from app.main import create_app
+from tests.fakes import FakeRouteProvider
 
 TripPayload = dict[str, Any]
 
@@ -32,10 +34,17 @@ def session_fixture(engine: Engine) -> Iterator[Session]:
         yield session
 
 
+@pytest.fixture(name="route_provider")
+def route_provider_fixture() -> FakeRouteProvider:
+    return FakeRouteProvider()
+
+
 @pytest.fixture(name="client")
-def client_fixture(session: Session) -> Iterator[TestClient]:
+def client_fixture(session: Session, route_provider: FakeRouteProvider) -> Iterator[TestClient]:
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
+    # Never hit Nominatim/OSRM from tests.
+    app.dependency_overrides[get_route_provider] = lambda: route_provider
     # Not used as a context manager on purpose: that would run the lifespan,
     # which initialises the on-disk database from settings.
     yield TestClient(app)
