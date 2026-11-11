@@ -72,7 +72,7 @@ export function TimelineChart({ timeline, granularity }: TimelineChartProps) {
         aria-label={`Chart: CO₂ footprint (bars) and CO₂ saved vs petrol car (line) per ${granularity}, in kg per person. The same data is in the table below.`}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={timeline} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
+          <ComposedChart data={timeline} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis
               dataKey="period_start"
@@ -87,6 +87,13 @@ export function TimelineChart({ timeline, granularity }: TimelineChartProps) {
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
+              label={{
+                value: 'kg CO₂',
+                angle: -90,
+                position: 'insideLeft',
+                fill: AXIS_TEXT,
+                fontSize: 12,
+              }}
             />
             <ReferenceLine y={0} stroke={AXIS_TEXT} />
             <Tooltip

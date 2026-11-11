@@ -15,6 +15,11 @@ export function formatCo2(kg: number | null): string {
 }
 
 /** Formats a calendar date (`YYYY-MM-DD`) without shifting it across time zones. */
+/** Chart value label: numbers as "9.4 kg", anything else as nothing. */
+export function formatCo2Label(value: unknown): string {
+  return typeof value === 'number' ? formatCo2(value) : '';
+}
+
 export function formatDay(isoDate: string): string {
   return dayFormat.format(new Date(`${isoDate}T00:00:00Z`));
 }

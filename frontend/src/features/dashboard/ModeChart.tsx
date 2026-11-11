@@ -3,6 +3,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,7 +12,7 @@ import {
 
 import { MODE_CHART_COLORS } from '@/features/trips/modeColors';
 import { cn } from '@/lib/cn';
-import { formatCo2, formatDistance } from '@/lib/format';
+import { formatCo2, formatCo2Label, formatDistance } from '@/lib/format';
 import type { StatsByMode } from '@/types/stats';
 import { MODE_LABELS } from '@/types/trip';
 
@@ -42,7 +43,7 @@ export function ModeChart({ byMode }: { byMode: StatsByMode[] }) {
   return (
     <figure>
       <div
-        className={cn('w-full', rows.length > 3 ? 'h-56' : 'h-36')}
+        className={cn('w-full', rows.length > 3 ? 'h-60' : 'h-40')}
         role="img"
         aria-label="Chart: CO₂ footprint by transport mode in kg per person. The same data is in the table below."
       >
@@ -50,7 +51,7 @@ export function ModeChart({ byMode }: { byMode: StatsByMode[] }) {
           <BarChart
             data={rows}
             layout="vertical"
-            margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
+            margin={{ top: 0, right: 64, bottom: 20, left: 0 }}
           >
             <CartesianGrid horizontal={false} stroke={GRID} />
             <XAxis
@@ -59,6 +60,13 @@ export function ModeChart({ byMode }: { byMode: StatsByMode[] }) {
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
+              label={{
+                value: 'kg CO₂ per person',
+                position: 'insideBottom',
+                offset: -12,
+                fill: AXIS_TEXT,
+                fontSize: 12,
+              }}
             />
             <YAxis
               type="category"
@@ -69,7 +77,21 @@ export function ModeChart({ byMode }: { byMode: StatsByMode[] }) {
               axisLine={false}
             />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f5f5f4' }} />
-            <Bar dataKey="co2_kg" barSize={16} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+            <Bar
+              dataKey="co2_kg"
+              barSize={16}
+              radius={[0, 4, 4, 0]}
+              minPointSize={3}
+              isAnimationActive={false}
+            >
+              {/* A bar of a few pixels and a value label keep 0 kg (the bike) visible. */}
+              <LabelList
+                dataKey="co2_kg"
+                position="right"
+                formatter={formatCo2Label}
+                fill={AXIS_TEXT}
+                fontSize={12}
+              />
               {rows.map((row) => (
                 <Cell key={row.mode} fill={MODE_CHART_COLORS[row.mode]} />
               ))}

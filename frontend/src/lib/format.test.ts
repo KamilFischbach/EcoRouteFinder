@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDay, formatDuration, formatRelativeTime } from './format';
+import { formatCo2Label, formatDay, formatDuration, formatRelativeTime } from './format';
 
 describe('formatRelativeTime', () => {
   const now = Date.parse('2026-11-10T12:00:00Z');
@@ -29,5 +29,13 @@ describe('formatDuration', () => {
 describe('formatDay', () => {
   it('formats a calendar date without shifting it by the time zone', () => {
     expect(formatDay('2026-03-01')).toBe('1 Mar 2026');
+  });
+});
+
+describe('formatCo2Label', () => {
+  it('labels numbers, including zero, and ignores the rest', () => {
+    expect(formatCo2Label(0)).toBe('0 kg');
+    expect(formatCo2Label(9.35)).toBe('9.4 kg');
+    expect(formatCo2Label(undefined)).toBe('');
   });
 });

@@ -3,13 +3,14 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 
-import { formatCo2 } from '@/lib/format';
+import { formatCo2, formatCo2Label } from '@/lib/format';
 import type { ComparisonOption } from '@/types/comparison';
 import { MODE_LABELS, type TransportMode } from '@/types/trip';
 
@@ -92,7 +93,7 @@ export function Co2Chart({ options, recommended = null }: Co2ChartProps) {
           <BarChart
             data={rows}
             layout="vertical"
-            margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
+            margin={{ top: 0, right: 64, bottom: 0, left: 0 }}
           >
             <CartesianGrid horizontal={false} stroke={GRID} />
             <XAxis
@@ -111,7 +112,21 @@ export function Co2Chart({ options, recommended = null }: Co2ChartProps) {
               axisLine={false}
             />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f5f5f4' }} />
-            <Bar dataKey="co2" barSize={16} radius={[0, 4, 4, 0]} isAnimationActive={false}>
+            <Bar
+              dataKey="co2"
+              barSize={16}
+              radius={[0, 4, 4, 0]}
+              minPointSize={3}
+              isAnimationActive={false}
+            >
+              {/* A bar of a few pixels and a value label keep 0 kg (the bike) visible. */}
+              <LabelList
+                dataKey="co2"
+                position="right"
+                formatter={formatCo2Label}
+                fill={AXIS_TEXT}
+                fontSize={12}
+              />
               {rows.map((row) => (
                 <Cell key={row.label} fill={barColor(row)} />
               ))}
