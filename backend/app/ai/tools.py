@@ -1,4 +1,4 @@
-"""Tool registry: the ONLY place where tools for the advisor (and later an MCP server) are defined.
+"""Tool registry: the ONLY place where tools for the advisor and the MCP server are defined.
 
 Each tool = name + description + Pydantic argument model + handler. Handlers are thin wrappers
 around deterministic services; they never do maths themselves. `parameters` for the LLM come
@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, Validation
 from app.ai.llm_client import ToolSpec
 from app.core.errors import AppError
 from app.models.trip import TransportMode
+from app.schemas.stats import StatsRead
 from app.services.comparison_models import ComparedOption, ComparisonResult
 from app.services.comparison_service import ComparisonService
 from app.services.emissions import calculate_emissions
@@ -28,6 +29,7 @@ from app.services.formatting import (
     format_duration,
     format_temperature,
 )
+from app.services.stats import DEFAULT_RANGE, Stats, StatsRange
 from app.services.weather import WeatherInfo, WeatherProvider
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,13 @@ class CalculateEmissionsArgs(_Args):
     distance_km: float = Field(gt=0, le=40_000, description="Distance in km")
     mode: TransportMode
     passengers: Passengers = 1
+
+
+class GetTripStatsArgs(_Args):
+    range: StatsRange = Field(
+        default=DEFAULT_RANGE,
+        description="Period: '30d', '90d', '12m' (by month) or 'all'",
+    )
 
 
 # --- registry -------------------------------------------------------------------------
@@ -171,7 +180,35 @@ def weather_to_tool_data(info: WeatherInfo) -> dict[str, Any]:
     return {**asdict(info), "quote": {"temperature": format_temperature(info.temperature_c)}}
 
 
-def build_tool_registry(comparisons: ComparisonService, weather: WeatherProvider) -> ToolRegistry:
+def stats_to_tool_data(stats: Stats) -> dict[str, Any]:
+    """The same JSON as `GET /stats`, plus ready-to-quote strings."""
+    totals = stats.totals
+    return {
+        **StatsRead.model_validate(stats).model_dump(mode="json", by_alias=True),
+        "values_are": "per person",
+        "co2_saved_is_compared_with": SAVINGS_BASELINE,
+        "quote": {
+            "co2_footprint": format_co2(totals.co2_kg),
+            "co2_saved_vs_petrol_car": format_co2_saving(totals.co2_saved_kg),
+            "distance": format_distance(totals.distance_km),
+            "km_not_driven": format_distance(totals.km_not_driven),
+            "eco_points": f"{totals.eco_points} points",
+            "level": stats.level.name,
+        },
+    }
+
+
+StatsSource = Callable[[StatsRange], Stats]
+"""Returns the statistics for a range (opens its own DB session)."""
+
+
+def build_tool_registry(
+    comparisons: ComparisonService,
+    weather: WeatherProvider,
+    stats: StatsSource | None = None,
+) -> ToolRegistry:
+    """The advisor's tools; with `stats`, also `get_trip_stats` (used by the MCP server)."""
+
     def compare_travel_options(args: CompareTravelOptionsArgs) -> dict[str, Any]:
         result = comparisons.compute(args.origin, args.destination, args.passengers)
         return comparison_to_tool_data(result)
@@ -192,27 +229,42 @@ def build_tool_registry(comparisons: ComparisonService, weather: WeatherProvider
             "quote": {"co2_per_person": format_co2(co2)},
         }
 
-    return ToolRegistry(
-        [
-            Tool(
-                "compare_travel_options",
-                "Compare time, cost and CO2 per person of all transport modes for a route. "
-                "Use it for a different route or group size than in the context.",
-                CompareTravelOptionsArgs,
-                compare_travel_options,
-            ),
-            Tool(
-                "get_weather",
-                "Current weather (temperature, precipitation, wind) for a place.",
-                GetWeatherArgs,
-                get_weather,
-            ),
-            Tool(
-                "calculate_emissions",
-                "kg CO2 per person for a distance, transport mode and number of passengers, "
-                "e.g. to answer 'what if we were 4?'.",
-                CalculateEmissionsArgs,
-                emissions,
-            ),
-        ]
+    tools = [
+        Tool(
+            "compare_travel_options",
+            "Compare time, cost and CO2 per person of all transport modes for a route. "
+            "Use it for a different route or group size than in the context.",
+            CompareTravelOptionsArgs,
+            compare_travel_options,
+        ),
+        Tool(
+            "get_weather",
+            "Current weather (temperature, precipitation, wind) for a place.",
+            GetWeatherArgs,
+            get_weather,
+        ),
+        Tool(
+            "calculate_emissions",
+            "kg CO2 per person for a distance, transport mode and number of passengers, "
+            "e.g. to answer 'what if we were 4?'.",
+            CalculateEmissionsArgs,
+            emissions,
+        ),
+    ]
+    if stats is not None:
+        tools.append(_trip_stats_tool(stats))
+    return ToolRegistry(tools)
+
+
+def _trip_stats_tool(stats: StatsSource) -> Tool:
+    def get_trip_stats(args: GetTripStatsArgs) -> dict[str, Any]:
+        return stats_to_tool_data(stats(args.range))
+
+    return Tool(
+        "get_trip_stats",
+        "The user's saved trips for a period: carbon footprint, CO2 saved vs the same group by "
+        "petrol car (net), km not driven, eco-points and level, a timeline, totals per mode and "
+        "the change vs the previous period. Same numbers as the EcoRoute dashboard.",
+        GetTripStatsArgs,
+        get_trip_stats,
     )

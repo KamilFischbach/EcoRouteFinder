@@ -130,3 +130,8 @@ def test_crashing_handler_does_not_raise() -> None:
 
     assert result.ok is False
     assert result.data == {"error": "The tool failed unexpectedly."}
+
+
+def test_advisor_registry_has_no_trip_stats() -> None:
+    # The MCP server adds get_trip_stats; the advisor's prompts don't know about it yet.
+    assert "get_trip_stats" not in registry().names
