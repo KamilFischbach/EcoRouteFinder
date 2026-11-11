@@ -14,6 +14,8 @@ export function getErrorMessage(error: unknown): string {
     switch (error.code) {
       case 'NETWORK_ERROR':
         return "Can't reach the API. Check that the backend is running on port 8000.";
+      case 'MCP_UNAVAILABLE':
+        return "Can't reach the EcoRoute MCP server. Check that the backend is running on port 8000.";
       case 'TIMEOUT':
         return 'This is taking too long. Please try again.';
       case 'VALIDATION_ERROR':

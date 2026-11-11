@@ -6,9 +6,13 @@ import { Spinner } from '@/components/Spinner';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { TripsPage } from '@/pages/TripsPage';
 
-// The compare and dashboard pages pull in Recharts; load them only when visited.
+// The compare and dashboard pages pull in Recharts, and the tools page the MCP client;
+// load them only when visited.
 const ComparePage = lazy(() =>
   import('@/pages/ComparePage').then((module) => ({ default: module.ComparePage })),
+);
+const ToolsPage = lazy(() =>
+  import('@/pages/ToolsPage').then((module) => ({ default: module.ToolsPage })),
 );
 const DashboardPage = lazy(() =>
   import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
@@ -43,6 +47,14 @@ export function App() {
           element={
             <Suspense fallback={<PageFallback />}>
               <DashboardPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="tools"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <ToolsPage />
             </Suspense>
           }
         />

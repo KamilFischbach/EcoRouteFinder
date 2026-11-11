@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 
 import { API_URL } from '@/api/client';
+import { MCP_URL, resetMcpConnection } from '@/api/mcp';
 import type {
   Advice,
   Comparison,
@@ -8,6 +9,7 @@ import type {
   ComparisonOption,
   ComparisonSummary,
 } from '@/types/comparison';
+import type { McpTool } from '@/types/mcp';
 import type { Stats, StatsRange } from '@/types/stats';
 import type { TransportMode, Trip, TripInput } from '@/types/trip';
 
@@ -99,6 +101,110 @@ export const statsFixture: Stats = {
     co2_saved_kg: 17.3,
   },
 };
+
+/** Tools as the MCP server lists them (schemas from the Pydantic argument models). */
+export const mcpToolsFixture: McpTool[] = [
+  {
+    name: 'get_trip_stats',
+    description: "The user's saved trips for a period. Same numbers as the EcoRoute dashboard.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        range: { $ref: '#/$defs/StatsRange', default: '90d', description: 'Period' },
+      },
+      $defs: { StatsRange: { enum: ['30d', '90d', '12m', 'all'], type: 'string' } },
+    },
+  },
+  {
+    name: 'calculate_emissions',
+    description: 'kg CO2 per person for a distance, transport mode and number of passengers.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        distance_km: {
+          type: 'number',
+          exclusiveMinimum: 0,
+          maximum: 40000,
+          description: 'Distance in km',
+        },
+        mode: { $ref: '#/$defs/TransportMode' },
+        passengers: { type: 'integer', minimum: 1, maximum: 9, default: 1 },
+      },
+      required: ['distance_km', 'mode'],
+      $defs: { TransportMode: { enum: ['car_petrol', 'train', 'bike'], type: 'string' } },
+    },
+  },
+];
+
+interface JsonRpcMessage {
+  id?: number | string;
+  method: string;
+  params?: { name?: string; arguments?: Record<string, unknown>; protocolVersion?: string };
+}
+
+/** What the fake MCP server answers to `tools/call`. */
+export function mcpToolResult(name: string, args: Record<string, unknown> = {}) {
+  if (name === 'get_trip_stats') {
+    const data = {
+      range: args.range ?? '90d',
+      totals: statsFixture.totals,
+      quote: { co2_footprint: '270.0 kg', co2_saved_vs_petrol_car: '152.2 kg less' },
+    };
+    return {
+      content: [{ type: 'text', text: JSON.stringify(data) }],
+      structuredContent: data,
+      isError: false,
+    };
+  }
+  const error = { error: 'Invalid arguments: distance_km: Input should be greater than 0' };
+  return {
+    content: [{ type: 'text', text: JSON.stringify(error) }],
+    structuredContent: error,
+    isError: true,
+  };
+}
+
+function mcpResult(message: JsonRpcMessage): unknown {
+  switch (message.method) {
+    case 'initialize':
+      return {
+        protocolVersion: message.params?.protocolVersion,
+        capabilities: { tools: {} },
+        serverInfo: { name: 'ecoroute', version: '0.1.0' },
+      };
+    case 'tools/list':
+      return { tools: mcpToolsFixture };
+    case 'tools/call':
+      return mcpToolResult(message.params?.name ?? '', message.params?.arguments);
+    default:
+      return {};
+  }
+}
+
+/** Every JSON-RPC request the fake MCP server received, oldest first. */
+export const mcpRequests: JsonRpcMessage[] = [];
+
+/** A fresh MCP session and request log for every test. */
+export function resetMcp(): void {
+  resetMcpConnection();
+  mcpRequests.length = 0;
+}
+
+export const mcpHandlers = [
+  http.post(MCP_URL, async ({ request }) => {
+    const message = (await request.json()) as JsonRpcMessage;
+    mcpRequests.push(message);
+    const headers = { 'mcp-session-id': 'test-session' };
+    if (message.id === undefined) return new HttpResponse(null, { status: 202, headers });
+    return HttpResponse.json(
+      { jsonrpc: '2.0', id: message.id, result: mcpResult(message) },
+      { headers },
+    );
+  }),
+  // No server-initiated stream and nothing to clean up.
+  http.get(MCP_URL, () => new HttpResponse(null, { status: 405 })),
+  http.delete(MCP_URL, () => new HttpResponse(null, { status: 200 })),
+];
 
 // In-memory "database" shared by the handlers; reset after every test in setup.ts.
 let trips: Trip[] = [];
@@ -226,6 +332,7 @@ function toSummary(c: Comparison): ComparisonSummary {
 }
 
 export const handlers = [
+  ...mcpHandlers,
   http.post(`${API_URL}/trip-drafts`, () =>
     HttpResponse.json({
       origin: 'Gdynia',

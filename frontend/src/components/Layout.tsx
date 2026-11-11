@@ -3,11 +3,20 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { AiStatusBadge } from '@/features/ai/AiStatusBadge';
 import { cn } from '@/lib/cn';
 
-const NAV_ITEMS = [
+interface NavItem {
+  to: string;
+  label: string;
+  /** Shorter text for phones. */
+  short?: string;
+  end: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Trips', end: true },
   { to: '/compare', label: 'Compare', end: false },
   { to: '/dashboard', label: 'Dashboard', end: false },
-] as const;
+  { to: '/tools', label: 'MCP tools', short: 'MCP', end: false },
+];
 
 function LeafIcon({ className }: { className?: string }) {
   return (
@@ -57,7 +66,14 @@ export function Layout() {
                       )
                     }
                   >
-                    {item.label}
+                    {item.short ? (
+                      <>
+                        <span className="sm:hidden">{item.short}</span>
+                        <span className="hidden sm:inline">{item.label}</span>
+                      </>
+                    ) : (
+                      item.label
+                    )}
                   </NavLink>
                 </li>
               ))}
