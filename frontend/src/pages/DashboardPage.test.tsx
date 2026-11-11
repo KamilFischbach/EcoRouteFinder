@@ -42,7 +42,8 @@ describe('DashboardPage', () => {
     ).toBeVisible();
     expect(tile('CO₂ footprint')).toHaveTextContent('270 kg');
     expect(tile('CO₂ footprint')).toHaveTextContent('10% less than the previous 90 days, better');
-    expect(tile('CO₂ saved vs petrol car')).toHaveTextContent('152.2 kg saved vs petrol car');
+    expect(tile('CO₂ saved vs petrol car')).toHaveTextContent('152.2 kg');
+    expect(tile('CO₂ saved vs petrol car')).toHaveTextContent('33.3% better than previous 90 days');
     expect(tile('Trips')).toHaveTextContent('23');
     expect(tile('Trips')).toHaveTextContent('3,150 km not driven');
     expect(tile('Eco-points')).toHaveTextContent('2,366');

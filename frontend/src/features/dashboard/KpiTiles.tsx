@@ -36,8 +36,9 @@ function Change({ change }: { change: ChangeBadge }) {
         {verdict ? `${change.description}, ${verdict}` : change.description}
       </span>
       <span aria-hidden="true">
-        {change.amount}
-        {verdict && ` · ${verdict}`}
+        {verdict
+          ? `${change.amount} ${verdict} than ${change.previous}`
+          : `Same as ${change.previous}`}
       </span>
     </p>
   );
@@ -93,7 +94,7 @@ export function KpiTiles({ stats }: { stats: Stats }) {
       <KpiTile
         title="CO₂ saved vs petrol car"
         value={formatCo2(Math.abs(saved))}
-        caption={savedPhrase(saved)}
+        caption={saved < 0 ? savedPhrase(saved) : 'compared with the same trips by petrol car'}
         change={changeBadge(previous?.saved_change_pct, range, false)}
       />
       <KpiTile

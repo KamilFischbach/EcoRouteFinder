@@ -14,7 +14,9 @@ A local LLM (via [Ollama](https://ollama.com)) parses free-text trips and acts a
 
 ## Demo
 
-_Coming soon._
+[![Play the demo video](demoThumbnail.png)](https://youtu.be/q9gWs7hLXpk)
+
+▶ [Watch the demo video on YouTube](https://youtu.be/q9gWs7hLXpk)
 
 ## Features
 

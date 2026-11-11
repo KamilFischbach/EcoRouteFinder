@@ -38,6 +38,8 @@ export interface ChangeBadge {
   amount: string;
   direction: 'up' | 'down' | 'same';
   better: boolean | null;
+  /** What the change is measured against: "previous 90 days" */
+  previous: string;
   /** "12% more than the previous 90 days" */
   description: string;
 }
@@ -55,13 +57,20 @@ export function changeBadge(
   const amount = `${Math.abs(pct).toLocaleString('en-GB', { maximumFractionDigits: 1 })}%`;
   const previous = previousPeriodLabel(range);
   if (pct === 0) {
-    return { amount, direction: 'same', better: null, description: `Same as the ${previous}` };
+    return {
+      amount,
+      direction: 'same',
+      better: null,
+      previous,
+      description: `Same as the ${previous}`,
+    };
   }
   const direction = pct > 0 ? 'up' : 'down';
   return {
     amount,
     direction,
     better: (direction === 'down') === lowerIsBetter,
+    previous,
     description: `${amount} ${direction === 'up' ? 'more' : 'less'} than the ${previous}`,
   };
 }

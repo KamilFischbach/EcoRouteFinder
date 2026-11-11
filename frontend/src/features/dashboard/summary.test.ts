@@ -41,6 +41,7 @@ describe('changeBadge', () => {
       amount: '10%',
       direction: 'down',
       better: true,
+      previous: 'previous 90 days',
       description: '10% less than the previous 90 days',
     });
   });
