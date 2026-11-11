@@ -11,8 +11,6 @@ import { inputClass } from '@/lib/styles';
 import { FIELD_LIMITS } from '@/lib/validators';
 import type { Advice, Comparison } from '@/types/comparison';
 
-import { WeatherIcon } from './WeatherIcon';
-
 function SourceBadge({ advice }: { advice: Advice }) {
   return advice.used_llm ? (
     <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
@@ -58,8 +56,8 @@ function ToolTrace({ advice }: { advice: Advice }) {
   );
 }
 
+// The weather is used for the advice (e.g. no bike in the rain) but not shown here.
 function AdviceView({ advice }: { advice: Advice }) {
-  const weather = advice.weather;
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -73,14 +71,6 @@ function AdviceView({ advice }: { advice: Advice }) {
           <li key={reason}>{reason}</li>
         ))}
       </ul>
-      {weather && (
-        <p className="mt-3 flex items-center gap-2 text-sm text-stone-600">
-          <WeatherIcon code={weather.weather_code} className="size-5 text-sky-600" />
-          {weather.location}: {Math.round(weather.temperature_c)} °C
-          {weather.description ? `, ${weather.description}` : ''}, wind{' '}
-          {Math.round(weather.wind_kph)} km/h
-        </p>
-      )}
       <ToolTrace advice={advice} />
     </div>
   );
@@ -109,9 +99,11 @@ interface EcoAdvisorCardProps {
 
 export function EcoAdvisorCard({ comparison, advisor }: EcoAdvisorCardProps) {
   const advice = comparison.advice;
-  // Follows the latest request until the user edits it.
-  const [edited, setEdited] = useState<string | null>(null);
-  const preferences = edited ?? advisor.preferences ?? advice?.preferences ?? '';
+  // What the user typed, tied to the advice it was typed for: a new answer empties the box.
+  // Before the first answer it starts from the preferences parsed from the trip description.
+  const [draft, setDraft] = useState<{ text: string; advice: Advice | null } | null>(null);
+  const typed = draft && draft.advice === advice ? draft.text : null;
+  const preferences = typed ?? (advice ? '' : (advisor.preferences ?? ''));
   const inputId = useId();
   const ask = () => advisor.ask(preferences.trim() || undefined);
 
@@ -157,10 +149,10 @@ export function EcoAdvisorCard({ comparison, advisor }: EcoAdvisorCardProps) {
         <input
           id={inputId}
           className={cn(inputClass(), 'sm:flex-1')}
-          placeholder="Optional: “I have luggage”, “cheapest please”"
+          placeholder="e.g. “I have skis”, “cheapest please”, “I want to be there fast”"
           maxLength={FIELD_LIMITS.preferencesMaxLength}
           value={preferences}
-          onChange={(event) => setEdited(event.target.value)}
+          onChange={(event) => setDraft({ text: event.target.value, advice })}
         />
         <Button
           type="submit"

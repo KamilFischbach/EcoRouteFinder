@@ -275,7 +275,9 @@ describe('ComparePage EcoAdvisor', () => {
     expect(sent).toEqual({ preferences: 'cheapest please' });
     expect(within(advisor()).getByText(adviceFixture.summary)).toBeInTheDocument();
     expect(within(advisor()).getByText('11.8 kg CO₂ per person')).toBeInTheDocument();
-    expect(within(advisor()).getByText(/Kraków: 3 °C, overcast/)).toBeInTheDocument();
+    // The weather feeds the advice but is not shown in the card.
+    expect(within(advisor()).queryByText(/°C/)).not.toBeInTheDocument();
+    expect(within(advisor()).getByLabelText(/preferences/i)).toHaveValue('');
     expect(within(card('Coach')).getByText('EcoAdvisor pick')).toBeInTheDocument();
     expect(within(card('Train')).queryByText('EcoAdvisor pick')).not.toBeInTheDocument();
     expect(within(advisor()).getByRole('button', { name: 'Ask again' })).toBeInTheDocument();

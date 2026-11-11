@@ -327,8 +327,12 @@ describe('Compare form and EcoAdvisor', () => {
     expect(sent.advice).toEqual([{ preferences: 'cheapest please' }]);
     expect(step(/Understanding your trip: skipped/)).toBeInTheDocument();
     expect(step(/Asking EcoAdvisor: done/)).toBeInTheDocument();
-    // "Ask again" starts from the preferences that were used.
-    expect(within(advisor()).getByLabelText(/preferences/i)).toHaveValue('cheapest please');
+    // The box is emptied for the next question once the answer is there.
+    expect(within(advisor()).getByLabelText(/preferences/i)).toHaveValue('');
+    expect(within(advisor()).getByLabelText(/preferences/i)).toHaveAttribute(
+      'placeholder',
+      expect.stringContaining('e.g.'),
+    );
   });
 
   it('keeps the results when advice fails and recovers with Try again', async () => {
