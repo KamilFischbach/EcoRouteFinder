@@ -4,6 +4,8 @@ import { cn } from '@/lib/cn';
 import { formatCo2, formatDistance } from '@/lib/format';
 import type { Stats } from '@/types/stats';
 
+import { LevelIcon } from './LevelIcon';
+import { levelTheme, type LevelTheme } from './levelTheme';
 import { changeBadge, savedPhrase, type ChangeBadge } from './summary';
 
 interface KpiTileProps {
@@ -11,6 +13,8 @@ interface KpiTileProps {
   value: string;
   caption: ReactNode;
   change?: ChangeBadge | null;
+  /** Gradient look of a level (the eco-points tile). */
+  theme?: LevelTheme;
 }
 
 const ARROWS = { up: '↑', down: '↓', same: '→' } as const;
@@ -39,18 +43,37 @@ function Change({ change }: { change: ChangeBadge }) {
   );
 }
 
-function KpiTile({ title, value, caption, change }: KpiTileProps) {
+function KpiTile({ title, value, caption, change, theme }: KpiTileProps) {
   const id = `kpi-${title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
   return (
     <section
       aria-labelledby={id}
-      className="rounded-2xl border border-stone-200/80 bg-white p-4 shadow-sm sm:p-5"
+      className={cn(
+        'relative overflow-hidden rounded-2xl p-4 shadow-sm sm:p-5',
+        theme ? theme.gradient : 'border border-stone-200/80 bg-white',
+      )}
     >
-      <h2 id={id} className="text-xs font-medium text-stone-500 sm:text-sm">
+      {theme && (
+        <LevelIcon
+          name={theme.icon}
+          className={cn('absolute -right-2 -bottom-2 size-20 opacity-25', theme.text)}
+        />
+      )}
+      <h2
+        id={id}
+        className={cn('text-xs font-medium sm:text-sm', theme ? theme.muted : 'text-stone-500')}
+      >
         {title}
       </h2>
-      <p className="mt-1 text-xl font-semibold text-stone-900 tabular-nums sm:text-2xl">{value}</p>
-      <p className="mt-0.5 text-xs text-stone-500">{caption}</p>
+      <p
+        className={cn(
+          'mt-1 text-xl font-semibold tabular-nums sm:text-2xl',
+          theme ? theme.text : 'text-stone-900',
+        )}
+      >
+        {value}
+      </p>
+      <p className={cn('mt-0.5 text-xs', theme ? theme.muted : 'text-stone-500')}>{caption}</p>
       {change && <Change change={change} />}
     </section>
   );
@@ -82,6 +105,7 @@ export function KpiTiles({ stats }: { stats: Stats }) {
         title="Eco-points"
         value={totals.eco_points.toLocaleString('en-GB')}
         caption={`Level: ${stats.level.name}`}
+        theme={levelTheme(stats.level.name)}
       />
     </div>
   );

@@ -15,7 +15,7 @@ numbers can be served over HTTP now and as an MCP tool later. Values are rounded
 """
 
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from enum import StrEnum
 from typing import Protocol
@@ -328,14 +328,7 @@ def _best_trip(items: Sequence[_Scored]) -> BestTrip | None:
 
 
 def _rounded_level(level: LevelProgress) -> LevelProgress:
-    return LevelProgress(
-        level.name,
-        level.points,
-        level.next_level_name,
-        level.next_level_at,
-        level.points_to_next,
-        _round(level.progress, 3),
-    )
+    return replace(level, progress=_round(level.progress, 3))
 
 
 def _round(value: float, digits: int = 2) -> float:

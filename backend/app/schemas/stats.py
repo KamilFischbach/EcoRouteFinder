@@ -23,6 +23,12 @@ class StatsTotalsRead(_FromAttributes):
     eco_points: int
 
 
+class LadderStepRead(_FromAttributes):
+    name: str
+    min_points: int
+    reached: bool
+
+
 class LevelRead(_FromAttributes):
     name: str
     points: int
@@ -30,6 +36,7 @@ class LevelRead(_FromAttributes):
     next_level_at: int | None
     points_to_next: int | None
     progress: float = Field(ge=0, le=1)
+    ladder: list[LadderStepRead]
 
 
 class TimelinePointRead(_FromAttributes):

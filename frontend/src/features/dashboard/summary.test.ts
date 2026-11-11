@@ -98,6 +98,7 @@ describe('nextLevelText', () => {
         next_level_at: null,
         points_to_next: null,
         progress: 1,
+        ladder: [],
       }),
     ).toBe('Top level reached');
   });

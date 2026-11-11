@@ -49,6 +49,13 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('heading', { name: 'Sapling' })).toBeInTheDocument();
     expect(screen.getByText(/1,634 pts to Tree/)).toBeInTheDocument();
     expect(screen.getByRole('progressbar', { name: 'Progress to Tree' })).toHaveValue(35);
+    const levels = screen.getByRole('list', { name: 'All levels' });
+    expect(within(levels).getAllByRole('listitem')).toHaveLength(5);
+    expect(within(levels).getByText('Sapling').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+    expect(within(levels).getByText(', locked (4000 pts)')).toBeInTheDocument();
     expect(screen.getByText('Warszawa → Gdańsk')).toBeInTheDocument();
   });
 

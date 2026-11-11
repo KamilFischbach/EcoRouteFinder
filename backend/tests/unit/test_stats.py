@@ -267,6 +267,7 @@ def test_last_level_has_no_next_threshold() -> None:
     assert level_for(20_000).next_level_at is None
     assert level_for(20_000).points_to_next is None
     assert level_for(1000).points_to_next == 500
+    assert [step.reached for step in level_for(1500).ladder] == [True, True, True, False, False]
 
 
 # --- service ------------------------------------------------------------------------------------

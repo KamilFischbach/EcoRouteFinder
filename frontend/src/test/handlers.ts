@@ -63,6 +63,13 @@ export const statsFixture: Stats = {
     next_level_at: 4000,
     points_to_next: 1634,
     progress: 0.346,
+    ladder: [
+      { name: 'Seedling', min_points: 0, reached: true },
+      { name: 'Sprout', min_points: 250, reached: true },
+      { name: 'Sapling', min_points: 1500, reached: true },
+      { name: 'Tree', min_points: 4000, reached: false },
+      { name: 'Forest', min_points: 8000, reached: false },
+    ],
   },
   timeline: [
     { period_start: '2026-10-26', co2_kg: 12.5, co2_saved_kg: 20.1, trips: 2 },

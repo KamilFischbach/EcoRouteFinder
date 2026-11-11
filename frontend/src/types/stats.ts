@@ -18,6 +18,12 @@ export interface StatsTotals {
   eco_points: number;
 }
 
+export interface StatsLadderStep {
+  name: string;
+  min_points: number;
+  reached: boolean;
+}
+
 export interface StatsLevel {
   name: string;
   points: number;
@@ -26,6 +32,8 @@ export interface StatsLevel {
   points_to_next: number | null;
   /** 0-1 */
   progress: number;
+  /** All levels in order. */
+  ladder: StatsLadderStep[];
 }
 
 export interface StatsTimelinePoint {

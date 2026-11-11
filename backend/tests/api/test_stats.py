@@ -73,6 +73,13 @@ def test_stats_on_empty_database_are_zeros(client: TestClient) -> None:
         "next_level_at": 250,
         "points_to_next": 250,
         "progress": 0.0,
+        "ladder": [
+            {"name": "Seedling", "min_points": 0, "reached": True},
+            {"name": "Sprout", "min_points": 250, "reached": False},
+            {"name": "Sapling", "min_points": 1500, "reached": False},
+            {"name": "Tree", "min_points": 4000, "reached": False},
+            {"name": "Forest", "min_points": 8000, "reached": False},
+        ],
     }
     assert len(body["timeline"]) >= 5
     assert body["best_trip"] is None
