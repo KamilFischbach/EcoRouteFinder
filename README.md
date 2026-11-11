@@ -104,6 +104,6 @@ All settings have working defaults; they are listed in [DETAILS.md](DETAILS.md#c
 - **Backend:** Python 3.12, FastAPI, SQLModel and SQLite, in layers: router → service → repository → database. Services never import FastAPI; all CO₂, cost and time maths is deterministic code.
 - **Frontend:** React 19, TypeScript (strict), Vite, TanStack Query, Tailwind CSS 4, Recharts.
 - **AI:** a local LLM via Ollama for the trip parser and EcoAdvisor, each with a rule-based fallback; an MCP server exposes the same tools to any AI agent.
-- **Quality:** pytest, ruff and mypy (strict); Vitest, React Testing Library and MSW; GitHub Actions runs all checks on every push.
+- **Quality:** pytest, ruff and mypy (strict); Vitest, React Testing Library and MSW; GitHub Actions runs all checks on every push. NOTE: CI fails because my account is blocked from running actions due to a payment error.
 
 Everything else (project structure, configuration, the REST API, how emissions are calculated, route fallbacks, the dashboard maths, the AI and MCP design, how to run the tests) is in **[DETAILS.md](DETAILS.md)**.
