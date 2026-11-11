@@ -27,6 +27,7 @@ def init_db(bind: Engine = engine) -> None:
     with bind.begin() as conn:
         _upgrade_comparisons_to_v2(conn)
         _add_trip_travelled_on(conn)
+        _add_comparison_travelled_on(conn)
 
 
 # Schema changes that must keep data are small, idempotent steps here (no migration tool).
@@ -66,6 +67,16 @@ def _add_trip_travelled_on(conn: Connection) -> None:
     conn.execute(text("ALTER TABLE trip ADD COLUMN travelled_on DATE"))
     conn.execute(text("UPDATE trip SET travelled_on = date(created_at)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_trip_travelled_on ON trip (travelled_on)"))
+
+
+def _add_comparison_travelled_on(conn: Connection) -> None:
+    """Comparisons gained `travelled_on` (the day of the planned trip). Old rows get the day they
+    were made. Safe to run on every start."""
+    columns = {column["name"] for column in inspect(conn).get_columns("comparison")}
+    if "travelled_on" in columns:
+        return
+    conn.execute(text("ALTER TABLE comparison ADD COLUMN travelled_on DATE"))
+    conn.execute(text("UPDATE comparison SET travelled_on = date(created_at)"))
 
 
 def get_session() -> Iterator[Session]:

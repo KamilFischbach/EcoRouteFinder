@@ -20,22 +20,23 @@ Note = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
 DistanceKm = Annotated[float, Field(gt=0, le=40_000, description="Route length in km")]
 Passengers = Annotated[int, Field(ge=1, le=9)]
 
-# UTC+14 is the furthest-ahead time zone: a date is "in the future" only once it hasn't
-# started anywhere yet. A user east of UTC can save today's trip just after midnight.
-LATEST_UTC_OFFSET = timedelta(hours=14)
+# Planned trips may be dated in the future, but not absurdly far: this catches typos such as
+# 2062 instead of 2026. Mirrors `maxDaysAhead` in frontend/src/lib/validators.ts.
+MAX_DAYS_AHEAD = 366
 
 
 def latest_travel_date() -> date:
-    return (datetime.now(UTC) + LATEST_UTC_OFFSET).date()
+    return (datetime.now(UTC) + timedelta(days=MAX_DAYS_AHEAD)).date()
 
 
-def _not_in_future(value: date) -> date:
+def _not_too_far_ahead(value: date) -> date:
     if value > latest_travel_date():
-        raise ValueError("Travel date cannot be in the future")
+        raise ValueError(f"Travel date can be at most {MAX_DAYS_AHEAD} days ahead")
     return value
 
 
-TravelDate = Annotated[date, AfterValidator(_not_in_future)]
+TravelDate = Annotated[date, AfterValidator(_not_too_far_ahead)]
+"""The day of the journey: past, today or planned (up to a year ahead)."""
 
 NULLABLE_UPDATE_FIELDS = frozenset({"note"})
 

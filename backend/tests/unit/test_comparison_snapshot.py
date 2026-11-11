@@ -1,6 +1,7 @@
 """Snapshot mapping: a stored comparison reads back exactly as it was computed."""
 
 import json
+from datetime import date
 
 from sqlmodel import Session
 
@@ -26,7 +27,7 @@ def test_snapshot_is_plain_json() -> None:
 
 def test_round_trip_through_the_database(session: Session) -> None:
     result = _result()
-    record = snapshot.to_record(result, "warszawa", "krakow", None)
+    record = snapshot.to_record(result, "warszawa", "krakow", None, date(2026, 11, 14))
 
     saved = ComparisonRepository(session).save(record)
     session.expire_all()
@@ -38,12 +39,13 @@ def test_round_trip_through_the_database(session: Session) -> None:
     assert restored.advice is None
     assert reloaded.origin == "warszawa"  # input kept as typed
     assert reloaded.origin_name == "Warszawa"  # resolved name
+    assert restored.travelled_on == date(2026, 11, 14)
 
 
 def test_record_denormalises_summary_fields() -> None:
     result = _result()
 
-    record = snapshot.to_record(result, "A", "B", None)
+    record = snapshot.to_record(result, "A", "B", None, date(2026, 11, 10))
 
     assert record.greenest_mode == "train"
     assert record.greenest_co2_kg == 9.35

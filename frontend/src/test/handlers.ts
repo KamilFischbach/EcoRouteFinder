@@ -230,6 +230,7 @@ export function getTripDb(): readonly Trip[] {
 export const comparisonFixture: Comparison = {
   id: 1,
   created_at: '2026-11-10T10:00:00Z',
+  travelled_on: '2026-11-10',
   advice: null,
   route: {
     origin: { name: 'Warszawa', lat: 52.2334, lon: 21.0711 },
@@ -294,6 +295,7 @@ export function savedComparison(
     ...structuredClone(comparisonFixture),
     id,
     created_at: createdAt,
+    travelled_on: createdAt.slice(0, 10),
     route: {
       ...comparisonFixture.route,
       origin: { ...comparisonFixture.route.origin, name: origin },
@@ -331,6 +333,7 @@ function toSummary(c: Comparison): ComparisonSummary {
     passengers: c.passengers,
     distance_km: c.route.distance_km,
     created_at: c.created_at,
+    travelled_on: c.travelled_on,
     greenest_mode: greenest?.mode ?? null,
     greenest_co2_kg: greenest?.co2_kg ?? null,
     petrol_car_co2_kg: first ? first.co2_kg + first.co2_saved_vs_petrol_car_kg : 0,
@@ -360,6 +363,7 @@ export const handlers = [
     const input = (await request.json()) as ComparisonInput;
     const id = Math.max(0, ...comparisons.map((c) => c.id)) + 1;
     const created = savedComparison(id, new Date().toISOString(), input.origin, input.destination);
+    if (input.travelled_on) created.travelled_on = input.travelled_on;
     comparisons = [created, ...comparisons];
     return HttpResponse.json(created, { status: 201 });
   }),

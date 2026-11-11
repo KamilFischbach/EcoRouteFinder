@@ -19,7 +19,11 @@ router = APIRouter(prefix="/comparisons", tags=["comparisons"])
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_comparison(payload: ComparisonCreate, service: ComparisonServiceDep) -> ComparisonRead:
     saved = service.create(
-        payload.origin, payload.destination, payload.passengers, payload.distance_km
+        payload.origin,
+        payload.destination,
+        payload.passengers,
+        payload.distance_km,
+        payload.travelled_on,
     )
     return ComparisonRead.model_validate(saved)
 

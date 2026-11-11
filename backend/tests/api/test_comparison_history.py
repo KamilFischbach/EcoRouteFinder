@@ -63,6 +63,7 @@ def test_list_returns_newest_first_with_summary_fields(client: TestClient) -> No
         "passengers": 1,
         "distance_km": 12.0,
         "created_at": second["created_at"],
+        "travelled_on": second["travelled_on"],
         "greenest_mode": "bike",
         "greenest_co2_kg": 0.0,
         # Petrol car, one person, 12 km x 0.16152.

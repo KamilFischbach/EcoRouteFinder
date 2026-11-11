@@ -3,12 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/Button';
 import { FormField } from '@/components/FormField';
 import { cn } from '@/lib/cn';
-import { FIELD_LIMITS, hasErrors } from '@/lib/validators';
+import { FIELD_LIMITS, hasErrors, latestTravelDate } from '@/lib/validators';
 import { inputClass } from '@/lib/styles';
 import type { ComparisonInput } from '@/types/comparison';
 
 import {
-  EMPTY_COMPARE_FORM,
+  emptyCompareForm,
   toComparisonInput,
   toPreferences,
   validateCompare,
@@ -30,13 +30,13 @@ interface CompareFormProps {
 }
 
 export function CompareForm({
-  initialValues = EMPTY_COMPARE_FORM,
+  initialValues,
   focusField,
   highlight = false,
   isSubmitting = false,
   onSubmit,
 }: CompareFormProps) {
-  const [values, setValues] = useState(initialValues);
+  const [values, setValues] = useState(() => initialValues ?? emptyCompareForm());
   const [errors, setErrors] = useState<CompareFormErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -99,20 +99,34 @@ export function CompareForm({
         />
       </FormField>
 
-      <FormField label="Passengers" htmlFor="compare-passengers" error={errors.passengers}>
-        <input
-          id="compare-passengers"
-          type="number"
-          min={FIELD_LIMITS.minPassengers}
-          max={FIELD_LIMITS.maxPassengers}
-          step={1}
-          className={inputClass(Boolean(errors.passengers))}
-          value={values.passengers}
-          aria-invalid={Boolean(errors.passengers)}
-          aria-describedby={describedBy('passengers')}
-          onChange={(event) => update('passengers', event.target.value)}
-        />
-      </FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Passengers" htmlFor="compare-passengers" error={errors.passengers}>
+          <input
+            id="compare-passengers"
+            type="number"
+            min={FIELD_LIMITS.minPassengers}
+            max={FIELD_LIMITS.maxPassengers}
+            step={1}
+            className={inputClass(Boolean(errors.passengers))}
+            value={values.passengers}
+            aria-invalid={Boolean(errors.passengers)}
+            aria-describedby={describedBy('passengers')}
+            onChange={(event) => update('passengers', event.target.value)}
+          />
+        </FormField>
+        <FormField label="Date of travel" htmlFor="compare-travelledOn" error={errors.travelledOn}>
+          <input
+            id="compare-travelledOn"
+            type="date"
+            max={latestTravelDate()}
+            className={inputClass(Boolean(errors.travelledOn))}
+            value={values.travelledOn}
+            aria-invalid={Boolean(errors.travelledOn)}
+            aria-describedby={describedBy('travelledOn')}
+            onChange={(event) => update('travelledOn', event.target.value)}
+          />
+        </FormField>
+      </div>
 
       <FormField
         label="What matters to you?"

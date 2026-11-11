@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TripForm } from './TripForm';
 import { toFormValues } from './validation';
-import { localIsoDate } from '@/lib/validators';
+import { latestTravelDate, localIsoDate } from '@/lib/validators';
 import { tripFixtures } from '@/test/handlers';
 
 function setup(props: Partial<Parameters<typeof TripForm>[0]> = {}) {
@@ -87,16 +87,16 @@ describe('TripForm', () => {
     expect(screen.getByLabelText('Date of travel')).toHaveValue('2026-11-07');
   });
 
-  it('starts with today as the travel date and does not allow future dates', () => {
+  it('starts with today as the travel date and allows planned dates up to a year ahead', () => {
     setup();
 
     const date = screen.getByLabelText('Date of travel');
     expect(date).toHaveAttribute('type', 'date');
     expect(date).toHaveValue(localIsoDate());
-    expect(date).toHaveAttribute('max', localIsoDate());
+    expect(date).toHaveAttribute('max', latestTravelDate());
   });
 
-  it('rejects a travel date in the future', async () => {
+  it('rejects a travel date more than a year ahead', async () => {
     const { onSubmit, user, submit } = setup();
 
     const date = screen.getByLabelText('Date of travel');
@@ -104,7 +104,7 @@ describe('TripForm', () => {
     await user.type(date, '2999-01-01');
     await submit();
 
-    expect(screen.getByText('The trip date cannot be in the future.')).toBeInTheDocument();
+    expect(screen.getByText('The trip date can be at most a year ahead.')).toBeInTheDocument();
     expect(date).toHaveAttribute('aria-invalid', 'true');
     expect(onSubmit).not.toHaveBeenCalled();
   });

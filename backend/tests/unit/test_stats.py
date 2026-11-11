@@ -139,13 +139,14 @@ def test_all_time_without_trips_is_just_today() -> None:
     assert [p.period_start for p in stats.timeline] == [date(2026, 11, 1)]
 
 
-def test_trip_dated_tomorrow_extends_the_range() -> None:
-    tomorrow = date(2026, 11, 11)  # possible east of UTC
+def test_planned_trips_are_not_counted_yet() -> None:
+    planned = FakeTrip(date(2026, 11, 14), id=2)
 
-    stats = stats_for([FakeTrip(tomorrow)])
+    stats = stats_for([FakeTrip(TODAY, id=1), planned], StatsRange.ALL)
 
-    assert stats.date_to == tomorrow
+    assert stats.date_to == TODAY
     assert stats.totals.trips == 1
+    assert stats.best_trip is not None and stats.best_trip.id == 1
 
 
 def test_previous_period_has_the_same_length_and_compares_totals() -> None:
@@ -164,7 +165,7 @@ def test_previous_period_has_the_same_length_and_compares_totals() -> None:
 
 
 def test_fetch_start_covers_the_previous_period() -> None:
-    assert fetch_start(StatsRange.DAYS_30, TODAY) == date(2026, 9, 11)
+    assert fetch_start(StatsRange.DAYS_30, TODAY) == date(2026, 9, 12)
     assert fetch_start(StatsRange.ALL, TODAY) is None
 
 
@@ -288,5 +289,5 @@ def test_service_asks_for_trips_once_from_the_previous_period() -> None:
 
     stats = StatsService(source).get_stats(StatsRange.DAYS_90, today=TODAY)
 
-    assert source.starts == [date(2026, 5, 14)]
+    assert source.starts == [date(2026, 5, 15)]
     assert stats.totals.trips == 1

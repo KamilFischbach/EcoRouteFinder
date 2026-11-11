@@ -163,12 +163,10 @@ def previous_period_bounds(date_from: date, date_to: date) -> tuple[date, date]:
 
 
 def fetch_start(stats_range: StatsRange, today: date) -> date | None:
-    """Oldest travel date the aggregation needs (incl. the previous period); None = all trips.
-    One spare day, because the range ends one day later when a trip is dated tomorrow (UTC)."""
+    """Oldest travel date the aggregation needs (incl. the previous period); None = all trips."""
     if stats_range is StatsRange.ALL:
         return None
-    previous_from, _ = previous_period_bounds(period_start(stats_range, today), today)
-    return previous_from - timedelta(days=1)
+    return previous_period_bounds(period_start(stats_range, today), today)[0]
 
 
 def _add_months(day: date, months: int) -> date:
@@ -192,11 +190,10 @@ def _next_bucket(start: date, granularity: Granularity) -> date:
 
 
 def aggregate_stats(trips: Iterable[TripRecord], stats_range: StatsRange, today: date) -> Stats:
-    """Statistics for the trips travelled in `stats_range`, ending `today` (or on the latest
-    trip date if a trip is dated after `today`, which a user east of UTC can do). Trips outside
-    the range and its previous period are ignored."""
-    scored = [_score(trip) for trip in trips]
-    date_to = max([today, *(s.trip.travelled_on for s in scored)])
+    """Statistics for the trips travelled in `stats_range`, ending `today`. Planned trips (dated
+    after `today`) and trips outside the range and its previous period are ignored."""
+    scored = [_score(trip) for trip in trips if trip.travelled_on <= today]
+    date_to = today
     earliest = min((s.trip.travelled_on for s in scored), default=None)
     date_from = period_start(stats_range, date_to, earliest)
     current = _between(scored, date_from, date_to)

@@ -6,13 +6,13 @@ The `greenest_*`, `petrol_car_co2_kg` and `recommended_mode` columns duplicate a
 values so the history list doesn't have to parse JSON for every row.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
-from app.models.trip import TransportMode, utc_now
+from app.models.trip import TransportMode, utc_now, utc_today
 
 
 class Comparison(SQLModel, table=True):
@@ -23,6 +23,7 @@ class Comparison(SQLModel, table=True):
     destination: str = Field(max_length=120)
     passengers: int
     distance_km: float | None = None
+    travelled_on: date = Field(default_factory=utc_today)  # day of the (planned) journey
 
     # Resolved route.
     origin_name: str

@@ -4,7 +4,7 @@ import { Button } from '@/components/Button';
 import { FormField } from '@/components/FormField';
 import { cn } from '@/lib/cn';
 import { inputClass } from '@/lib/styles';
-import { localIsoDate } from '@/lib/validators';
+import { latestTravelDate } from '@/lib/validators';
 import { MODE_LABELS, TRANSPORT_MODES, type TripInput } from '@/types/trip';
 
 import {
@@ -123,7 +123,7 @@ export function TripForm({
         <input
           id="trip-travelledOn"
           type="date"
-          max={localIsoDate()}
+          max={latestTravelDate()}
           className={inputClass(Boolean(errors.travelledOn))}
           value={values.travelledOn}
           aria-invalid={Boolean(errors.travelledOn)}

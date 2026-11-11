@@ -4,7 +4,7 @@ Shared by the comparison service, the snapshot mapping and (later) the AI tools.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from app.models.trip import TransportMode
@@ -71,6 +71,7 @@ class SavedComparison:
 
     id: int
     created_at: datetime
+    travelled_on: date
     route: ComparedRoute
     passengers: int
     options: list[ComparedOption]
@@ -89,6 +90,7 @@ class ComparisonSummary:
     passengers: int
     distance_km: float
     created_at: datetime
+    travelled_on: date
     greenest_mode: TransportMode | None
     greenest_co2_kg: float | None
     petrol_car_co2_kg: float

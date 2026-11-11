@@ -5,6 +5,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { API_URL } from '@/api/client';
+import { localIsoDate } from '@/lib/validators';
 import { ComparePage } from '@/pages/ComparePage';
 import { adviceFixture, resetComparisonDb, savedComparison } from '@/test/handlers';
 import { server } from '@/test/server';
@@ -184,7 +185,9 @@ describe('TripAssistant auto mode', () => {
     expect(within(step(/Understanding your trip: done/)).getByText('AI')).toBeInTheDocument();
     expect(step(/Comparing 6 ways to travel: done/)).toBeInTheDocument();
     expect(step(/Asking EcoAdvisor: done/)).toBeInTheDocument();
-    expect(sent.comparisons).toEqual([{ origin: 'Tczew', destination: 'Karpacz', passengers: 2 }]);
+    expect(sent.comparisons).toEqual([
+      { origin: 'Tczew', destination: 'Karpacz', passengers: 2, travelled_on: localIsoDate() },
+    ]);
     expect(sent.advice).toEqual([{ preferences: 'ski equipment, comfort matters' }]);
     // The form shows what was used, so the user can tweak it and compare again.
     expect(screen.getByLabelText('What matters to you?')).toHaveValue(
@@ -322,7 +325,7 @@ describe('Compare form and EcoAdvisor', () => {
 
     expect(await within(await findAdvisor()).findByText(adviceFixture.summary)).toBeInTheDocument();
     expect(sent.comparisons).toEqual([
-      { origin: 'Warszawa', destination: 'Kraków', passengers: 1 },
+      { origin: 'Warszawa', destination: 'Kraków', passengers: 1, travelled_on: localIsoDate() },
     ]);
     expect(sent.advice).toEqual([{ preferences: 'cheapest please' }]);
     expect(step(/Understanding your trip: skipped/)).toBeInTheDocument();

@@ -158,3 +158,16 @@ def test_init_db_gives_old_trips_their_save_date_as_travel_date(legacy_engine: E
         assert [t.id for t in service.list_trips()] == [new.id, 1]
     indexes = {i["name"] for i in inspect(legacy_engine).get_indexes("trip")}
     assert "ix_trip_travelled_on" in indexes
+
+
+def test_init_db_gives_old_comparisons_their_save_date_as_travel_date(
+    legacy_engine: Engine,
+) -> None:
+    init_db(legacy_engine)
+    init_db(legacy_engine)  # idempotent
+
+    with Session(legacy_engine) as session:
+        record = ComparisonRepository(session).get(1)
+        assert record is not None
+        assert record.travelled_on == date(2026, 11, 9)
+        assert snapshot.to_summary(record).travelled_on == date(2026, 11, 9)

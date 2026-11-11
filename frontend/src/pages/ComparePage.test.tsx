@@ -5,6 +5,7 @@ import { Route, Routes } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { API_URL } from '@/api/client';
+import { addDays, localIsoDate } from '@/lib/validators';
 import {
   adviceFixture,
   getComparisonDb,
@@ -72,7 +73,12 @@ describe('ComparePage', () => {
     await fillAndSubmit(user);
 
     expect(await screen.findByRole('heading', { name: 'Warszawa → Kraków' })).toBeInTheDocument();
-    expect(sent).toEqual({ origin: 'Warszawa', destination: 'Kraków', passengers: 2 });
+    expect(sent).toEqual({
+      origin: 'Warszawa',
+      destination: 'Kraków',
+      passengers: 2,
+      travelled_on: localIsoDate(),
+    });
 
     const train = card('Train');
     expect(within(train).getByText('Greenest')).toBeInTheDocument();
@@ -170,6 +176,30 @@ describe('ComparePage history', () => {
     expect(await screen.findByText(/No comparisons yet/)).toBeInTheDocument();
   });
 
+  it('compares for a planned date and saves the trip with that date', async () => {
+    const planned = addDays(localIsoDate(), 5);
+    let sent: ComparisonInput | undefined;
+    server.use(
+      http.post(`${API_URL}/comparisons`, async ({ request }) => {
+        sent = (await request.clone().json()) as ComparisonInput;
+        return undefined; // fall through to the default handler
+      }),
+    );
+    const { user } = renderPage();
+
+    await user.type(screen.getByLabelText('From'), 'Warszawa');
+    await user.type(screen.getByLabelText('To'), 'Kraków');
+    const date = screen.getByLabelText('Date of travel');
+    expect(date).toHaveValue(localIsoDate());
+    await user.clear(date);
+    await user.type(date, planned);
+    await user.click(screen.getByRole('button', { name: 'Compare' }));
+    await user.click(await screen.findByRole('button', { name: 'Save trip by Train' }));
+
+    expect(sent?.travelled_on).toBe(planned);
+    await waitFor(() => expect(getTripDb()[0]?.travelled_on).toBe(planned));
+  });
+
   it('lists recent comparisons with route, greenest mode and savings', async () => {
     resetComparisonDb([
       savedComparison(2, new Date(Date.now() - 2 * 3_600_000).toISOString(), 'Gdańsk', 'Sopot'),
@@ -182,7 +212,7 @@ describe('ComparePage history', () => {
       expect.stringContaining('Gdańsk → Sopot'),
       expect.stringContaining('Warszawa → Kraków'),
     ]);
-    expect(rows[0]).toHaveTextContent('2 h ago');
+    expect(rows[1]).toHaveTextContent('1 Oct 2026');
     expect(rows[0]).toHaveTextContent('Train');
     // Same 2 people by petrol car 24.18 kg - train 9.44 kg, per person.
     expect(rows[0]).toHaveTextContent('saves 14.7 kg CO₂ vs petrol car');

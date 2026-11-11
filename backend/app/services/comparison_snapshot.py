@@ -8,7 +8,7 @@ Snapshot format (`Comparison.result`), versioned so it can evolve::
 """
 
 from dataclasses import asdict
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from app.models.comparison import Comparison
@@ -78,7 +78,11 @@ def highlights_from_snapshot(snapshot: dict[str, Any]) -> Highlights:
 
 
 def to_record(
-    result: ComparisonResult, origin: str, destination: str, distance_km: float | None
+    result: ComparisonResult,
+    origin: str,
+    destination: str,
+    distance_km: float | None,
+    travelled_on: date,
 ) -> Comparison:
     greenest = result.option(result.highlights.greenest) if result.highlights.greenest else None
     route = result.route
@@ -87,6 +91,7 @@ def to_record(
         destination=destination,
         passengers=result.passengers,
         distance_km=distance_km,
+        travelled_on=travelled_on,
         origin_name=route.origin.name,
         origin_lat=route.origin.lat,
         origin_lon=route.origin.lon,
@@ -119,6 +124,7 @@ def to_saved(record: Comparison) -> SavedComparison:
     return SavedComparison(
         id=record.id,
         created_at=record.created_at,
+        travelled_on=record.travelled_on,
         route=route_from_record(record),
         passengers=record.passengers,
         options=options_from_snapshot(record.result),
@@ -145,6 +151,7 @@ def to_summary(record: Comparison) -> ComparisonSummary:
         passengers=record.passengers,
         distance_km=record.road_km,
         created_at=record.created_at,
+        travelled_on=record.travelled_on,
         greenest_mode=record.greenest_mode,
         greenest_co2_kg=record.greenest_co2_kg,
         petrol_car_co2_kg=record.petrol_car_co2_kg,

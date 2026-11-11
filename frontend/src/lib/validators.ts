@@ -11,6 +11,8 @@ export const FIELD_LIMITS = {
   // AdviceCreate.preferences and TripDraftCreate.text (backend/app/schemas).
   preferencesMaxLength: 300,
   tripDescriptionMaxLength: 500,
+  // Planned trips: at most this many days ahead (TravelDate in backend/app/schemas/trip.py).
+  maxDaysAhead: 366,
 } as const;
 
 /** Today's date in the user's time zone as `YYYY-MM-DD` (the format of `<input type="date">`). */
@@ -20,7 +22,19 @@ export function localIsoDate(now: Date = new Date()): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-/** Mirrors `TravelDate` in backend/app/schemas/trip.py: a real date, not in the future. */
+/** `YYYY-MM-DD` plus `days`, without time zone surprises. */
+export function addDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** The latest allowed travel date: planned trips may be up to a year ahead. */
+export function latestTravelDate(today: string = localIsoDate()): string {
+  return addDays(today, FIELD_LIMITS.maxDaysAhead);
+}
+
+/** Mirrors `TravelDate` in backend/app/schemas/trip.py: a real date, at most a year ahead. */
 export function validateTravelDate(
   raw: string,
   today: string = localIsoDate(),
@@ -28,7 +42,7 @@ export function validateTravelDate(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw) || Number.isNaN(Date.parse(raw))) {
     return 'Enter the date of the trip.';
   }
-  if (raw > today) return 'The trip date cannot be in the future.';
+  if (raw > latestTravelDate(today)) return 'The trip date can be at most a year ahead.';
   return undefined;
 }
 

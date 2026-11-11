@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { localIsoDate, validateTravelDate } from './validators';
+import { addDays, latestTravelDate, localIsoDate, validateTravelDate } from './validators';
 
 describe('localIsoDate', () => {
   it('uses the local calendar day with zero padding', () => {
@@ -16,8 +16,17 @@ describe('validateTravelDate', () => {
     expect(validateTravelDate('2025-02-28', today)).toBeUndefined();
   });
 
-  it('rejects future dates', () => {
-    expect(validateTravelDate('2026-11-11', today)).toBe('The trip date cannot be in the future.');
+  it('accepts planned dates up to a year ahead and rejects later ones', () => {
+    expect(validateTravelDate('2026-11-15', today)).toBeUndefined();
+    expect(validateTravelDate(latestTravelDate(today), today)).toBeUndefined();
+    expect(validateTravelDate('2027-11-12', today)).toBe(
+      'The trip date can be at most a year ahead.',
+    );
+  });
+
+  it('adds days across months and years', () => {
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(latestTravelDate('2026-11-10')).toBe('2027-11-11');
   });
 
   it('rejects empty or malformed input', () => {

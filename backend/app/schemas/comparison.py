@@ -1,12 +1,12 @@
 """DTOs for the comparisons API. All CO2 and cost values are per person."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
-from app.models.trip import TransportMode
-from app.schemas.trip import DistanceKm, Passengers, PlaceName
+from app.models.trip import TransportMode, utc_today
+from app.schemas.trip import DistanceKm, Passengers, PlaceName, TravelDate
 
 
 def _assume_utc(value: datetime) -> datetime:
@@ -26,6 +26,8 @@ class ComparisonCreate(BaseModel):
     passengers: Passengers = 1
     distance_km: DistanceKm | None = None
     """Optional road distance. When given, no geocoding or routing request is made."""
+    travelled_on: TravelDate = Field(default_factory=utc_today)
+    """Day of the (planned) journey; trips saved from this comparison get it."""
 
 
 class _FromAttributes(BaseModel):
@@ -103,6 +105,7 @@ class ComparisonRead(_FromAttributes):
 
     id: int
     created_at: UtcDatetime
+    travelled_on: date
     route: RouteRead
     passengers: int
     options: list[ComparisonOptionRead]
@@ -119,6 +122,7 @@ class ComparisonSummaryRead(_FromAttributes):
     passengers: int
     distance_km: float
     created_at: UtcDatetime
+    travelled_on: date
     greenest_mode: TransportMode | None
     greenest_co2_kg: float | None
     petrol_car_co2_kg: float

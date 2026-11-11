@@ -5,7 +5,6 @@ import { Card } from '@/components/Card';
 import type { AdvisorController } from '@/features/assistant/useTripAssistant';
 import { useCreateTrip } from '@/features/trips/useTrips';
 import { formatDistance } from '@/lib/format';
-import { localIsoDate } from '@/lib/validators';
 import type { Comparison, ComparisonOption, RouteSource } from '@/types/comparison';
 import type { TransportMode } from '@/types/trip';
 
@@ -62,7 +61,7 @@ export function ComparisonResults({ comparison, advisor }: ComparisonResultsProp
         passengers,
         mode: option.mode,
         note: null,
-        travelled_on: localIsoDate(),
+        travelled_on: comparison.travelled_on,
       },
       {
         onSuccess: () => setSaved((current) => new Set(current).add(option.mode)),

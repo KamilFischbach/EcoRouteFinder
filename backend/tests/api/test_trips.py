@@ -89,25 +89,35 @@ def test_create_trip_keeps_a_past_travel_date(
     assert body["travelled_on"] == "2026-03-14"
 
 
-@pytest.mark.parametrize("days_ahead", [2, 365])
-def test_create_trip_with_future_date_returns_422(
+def test_create_trip_accepts_a_planned_date(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    planned = (datetime.now(UTC) + timedelta(days=5)).date().isoformat()
+
+    body = _create(client, make_trip_payload(travelled_on=planned))
+
+    assert body["travelled_on"] == planned
+
+
+@pytest.mark.parametrize("days_ahead", [368, 5000])
+def test_create_trip_more_than_a_year_ahead_returns_422(
     client: TestClient, make_trip_payload: MakePayload, days_ahead: int
 ) -> None:
-    future = (datetime.now(UTC) + timedelta(days=days_ahead)).date().isoformat()
+    too_far = (datetime.now(UTC) + timedelta(days=days_ahead)).date().isoformat()
 
-    response = client.post(TRIPS_URL, json=make_trip_payload(travelled_on=future))
+    response = client.post(TRIPS_URL, json=make_trip_payload(travelled_on=too_far))
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def test_update_trip_with_future_date_returns_422(
+def test_update_trip_more_than_a_year_ahead_returns_422(
     client: TestClient, make_trip_payload: MakePayload
 ) -> None:
     trip = _create(client, make_trip_payload())
-    future = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+    too_far = (datetime.now(UTC) + timedelta(days=400)).date().isoformat()
 
-    response = client.put(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": future})
+    response = client.put(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": too_far})
 
     assert response.status_code == 422
 

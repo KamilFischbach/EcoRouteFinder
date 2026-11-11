@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { tripDraftsApi } from '@/api/tripDrafts';
 import { useAdviceMutation, useCompareMutation } from '@/features/compare/useCompare';
 import {
-  EMPTY_COMPARE_FORM,
+  emptyCompareForm,
   fromTripDraft,
   toComparisonInput,
   type CompareFormValues,
@@ -54,7 +54,7 @@ export function useTripAssistant() {
   const [mode, setModeState] = useState(loadAssistantMode);
   const [form, setForm] = useState<FormPrefill>({
     key: 0,
-    values: EMPTY_COMPARE_FORM,
+    values: emptyCompareForm(),
     highlight: false,
   });
   // Callbacks of an older run (e.g. slow advice) must not move a newer run's steps.

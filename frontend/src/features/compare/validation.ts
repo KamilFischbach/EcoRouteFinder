@@ -4,7 +4,9 @@ import {
   parseDecimal,
   validateDistance,
   validatePassengers,
+  localIsoDate,
   validatePlace,
+  validateTravelDate,
 } from '@/lib/validators';
 import type { ComparisonInput } from '@/types/comparison';
 import type { TripDraft } from '@/types/tripDraft';
@@ -17,17 +19,23 @@ export interface CompareFormValues {
   distanceKm: string;
   /** Optional "What matters to you?" text, sent to EcoAdvisor after the comparison. */
   preferences: string;
+  /** Day of the (planned) trip, `YYYY-MM-DD`; trips saved from the comparison get it. */
+  travelledOn: string;
 }
 
 export type CompareFormErrors = Partial<Record<keyof CompareFormValues, string>>;
 
-export const EMPTY_COMPARE_FORM: CompareFormValues = {
-  origin: '',
-  destination: '',
-  passengers: '1',
-  distanceKm: '',
-  preferences: '',
-};
+/** A fresh form; the travel date starts as today. */
+export function emptyCompareForm(today: string = localIsoDate()): CompareFormValues {
+  return {
+    origin: '',
+    destination: '',
+    passengers: '1',
+    distanceKm: '',
+    preferences: '',
+    travelledOn: today,
+  };
+}
 
 export function validateCompare(values: CompareFormValues): CompareFormErrors {
   return compactErrors({
@@ -39,6 +47,7 @@ export function validateCompare(values: CompareFormValues): CompareFormErrors {
       values.preferences.trim().length > FIELD_LIMITS.preferencesMaxLength
         ? `Maximum ${FIELD_LIMITS.preferencesMaxLength} characters.`
         : undefined,
+    travelledOn: validateTravelDate(values.travelledOn),
   });
 }
 
@@ -50,6 +59,7 @@ export function fromTripDraft(draft: TripDraft): CompareFormValues {
     passengers: String(draft.passengers ?? 1),
     distanceKm: '',
     preferences: draft.preferences ?? '',
+    travelledOn: localIsoDate(),
   };
 }
 
@@ -63,6 +73,7 @@ export function toComparisonInput(values: CompareFormValues): ComparisonInput {
     origin: values.origin.trim(),
     destination: values.destination.trim(),
     passengers: Number(values.passengers),
+    travelled_on: values.travelledOn,
   };
   if (values.distanceKm.trim()) input.distance_km = parseDecimal(values.distanceKm);
   return input;

@@ -9,7 +9,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { Spinner } from '@/components/Spinner';
 import { ModeBadge } from '@/features/trips/ModeBadge';
 import { cn } from '@/lib/cn';
-import { formatCo2, formatRelativeTime } from '@/lib/format';
+import { formatCo2, formatDay } from '@/lib/format';
 import type { ComparisonSummary } from '@/types/comparison';
 import { MODE_LABELS } from '@/types/trip';
 
@@ -39,7 +39,7 @@ function RecentRow({
       >
         <span className="block truncate text-sm font-medium text-stone-900">{route}</span>
         <span className="mt-0.5 block text-xs text-stone-500">
-          {formatRelativeTime(row.created_at)} · {row.passengers}{' '}
+          <span title="Date of travel">{formatDay(row.travelled_on)}</span> · {row.passengers}{' '}
           {row.passengers === 1 ? 'traveller' : 'travellers'}
         </span>
         <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-stone-600">

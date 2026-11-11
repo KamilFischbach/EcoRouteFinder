@@ -9,6 +9,8 @@ export interface ComparisonInput {
   passengers: number;
   /** Optional road distance; when set the backend skips geocoding and routing. */
   distance_km?: number;
+  /** Day of the (planned) trip, `YYYY-MM-DD`; defaults to today on the server. */
+  travelled_on?: string;
 }
 
 export type RouteSource = 'osrm' | 'estimate' | 'user';
@@ -76,6 +78,8 @@ export interface Advice {
 export interface Comparison {
   id: number;
   created_at: string;
+  /** Day of the (planned) trip, `YYYY-MM-DD`. */
+  travelled_on: string;
   route: ComparisonRoute;
   passengers: number;
   options: ComparisonOption[];
@@ -91,6 +95,7 @@ export interface ComparisonSummary {
   passengers: number;
   distance_km: number;
   created_at: string;
+  travelled_on: string;
   greenest_mode: TransportMode | null;
   greenest_co2_kg: number | null;
   /** CO2 per person if the same group went by petrol car (the savings baseline). */

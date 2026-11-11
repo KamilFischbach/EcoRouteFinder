@@ -10,11 +10,12 @@ stores a snapshot; history reads return that snapshot without recomputing.
 """
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from app.core.errors import NotFoundError, RouteTooShortError
 from app.models.comparison import Comparison
-from app.models.trip import TransportMode
+from app.models.trip import TransportMode, utc_today
 from app.repositories.comparison_repository import ComparisonRepository
 from app.services import comparison_snapshot as snapshot
 from app.services.comparison_models import (
@@ -100,9 +101,13 @@ class ComparisonService:
         destination: str,
         passengers: int = 1,
         distance_km: float | None = None,
+        travelled_on: date | None = None,
     ) -> SavedComparison:
+        """Compare and store. `travelled_on` is the day of the (planned) trip, default today."""
         result = self.compute(origin, destination, passengers, distance_km)
-        record = snapshot.to_record(result, origin, destination, distance_km)
+        record = snapshot.to_record(
+            result, origin, destination, distance_km, travelled_on or utc_today()
+        )
         return snapshot.to_saved(self._repo().save(record))
 
     def list_recent(self, limit: int = 20, offset: int = 0) -> list[ComparisonSummary]:

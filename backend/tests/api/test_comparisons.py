@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -109,3 +110,27 @@ def test_same_place_returns_route_too_short(
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "ROUTE_TOO_SHORT"
+
+
+def test_comparison_keeps_a_planned_travel_date(client: TestClient) -> None:
+    planned = (datetime.now(UTC) + timedelta(days=4)).date().isoformat()
+
+    created = client.post(URL, json=_payload(travelled_on=planned)).json()
+
+    assert created["travelled_on"] == planned
+    assert client.get(f"{URL}/{created['id']}").json()["travelled_on"] == planned
+    assert client.get(URL).json()[0]["travelled_on"] == planned
+
+
+def test_comparison_travel_date_defaults_to_today(client: TestClient) -> None:
+    created = client.post(URL, json=_payload()).json()
+
+    assert created["travelled_on"] == datetime.now(UTC).date().isoformat()
+
+
+def test_comparison_more_than_a_year_ahead_returns_422(client: TestClient) -> None:
+    too_far = (datetime.now(UTC) + timedelta(days=400)).date().isoformat()
+
+    response = client.post(URL, json=_payload(travelled_on=too_far))
+
+    assert response.status_code == 422

@@ -151,11 +151,11 @@ Ollama runs in the background on `http://localhost:11434`. Restart nothing: the 
 |---|---|---|
 | `GET` | `/api/v1/health` | `{status, ai_available, ai_model}` |
 | `GET` | `/api/v1/trips?mode=` | List trips, latest travel date first, optional mode filter |
-| `POST` | `/api/v1/trips` | Create a trip → `201`. `travelled_on` (`YYYY-MM-DD`) defaults to today and cannot be in the future (`422`) |
+| `POST` | `/api/v1/trips` | Create a trip → `201`. `travelled_on` (`YYYY-MM-DD`) defaults to today; planned trips may be up to a year ahead (later → `422`) |
 | `GET` | `/api/v1/trips/{id}` | Get one trip → `404` if missing |
 | `PUT` | `/api/v1/trips/{id}` | Update the fields sent in the body |
 | `DELETE` | `/api/v1/trips/{id}` | Delete → `204` |
-| `POST` | `/api/v1/comparisons` | Compare all modes for `{origin, destination, passengers, distance_km?}` and save it → `201` |
+| `POST` | `/api/v1/comparisons` | Compare all modes for `{origin, destination, passengers, distance_km?, travelled_on?}` and save it → `201`. Trips saved from it get its `travelled_on` |
 | `GET` | `/api/v1/comparisons?limit=20&offset=0` | History, newest first (summary rows) |
 | `GET` | `/api/v1/comparisons/{id}` | A saved comparison (snapshot + advice) → `404` if missing |
 | `DELETE` | `/api/v1/comparisons/{id}` | Delete → `204` |
@@ -222,7 +222,7 @@ The table is created by `init_db()` at startup. Snapshot version 2 renamed the s
 - **Levels** (`services/eco_points.py`): Seedling 0, Sprout 250, Sapling 1,500, Tree 4,000, Forest 8,000 points. A threshold is reached when hit exactly.
 - **Ranges:** 30 and 90 days end today and are drawn by week (Monday to Sunday); 12 months start on the 1st of the month 11 months ago and are drawn by month, like All time. Empty weeks and months are shown as zero. Footprint and savings are compared with the **previous period of the same length** (not for All time). The **best trip** is the one that saved the most (none if no trip saved anything).
 
-**Simplifications:** a trip's distance is the distance of the chosen mode (e.g. the rail distance for a train trip), and the petrol-car baseline uses that same distance rather than the road distance. Footprint is per person, so a group trip counts once, not once per traveller. The range ends on the UTC date, so a trip dated "today" just after midnight east of UTC moves the range end one day forward.
+**Simplifications:** a trip's distance is the distance of the chosen mode (e.g. the rail distance for a train trip), and the petrol-car baseline uses that same distance rather than the road distance. Footprint is per person, so a group trip counts once, not once per traveller. The range ends on the UTC date. **Planned trips** (dated after today) are listed with a "Planned" badge but count in the statistics only once their day comes.
 
 **Demo data.** To see the dashboard without entering trips by hand, add 30 demo trips between Polish cities from the last four months (mostly trains, some cars and bikes, two flights). Their CO₂ is computed by the same `TripService`. The command refuses to run when the database already has trips; `--force` adds the demo trips next to them and never deletes anything.
 
