@@ -26,7 +26,8 @@ export type AssistantAction =
   | { type: 'compared' }
   | { type: 'advice_started' }
   | { type: 'advised' }
-  | { type: 'failed'; step: StepId };
+  | { type: 'failed'; step: StepId }
+  | { type: 'reset' };
 
 export const INITIAL_ASSISTANT_STATE: AssistantState = {
   phase: 'idle',
@@ -65,6 +66,8 @@ export function assistantReducer(state: AssistantState, action: AssistantAction)
       return { ...state, phase: 'advising', failedStep: null };
     case 'advised':
       return { ...state, phase: 'done' };
+    case 'reset':
+      return INITIAL_ASSISTANT_STATE;
     case 'failed':
       return { ...state, phase: 'error', failedStep: action.step };
   }

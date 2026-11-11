@@ -22,10 +22,12 @@ function savedKg(row: ComparisonSummary): number | null {
 function RecentRow({
   row,
   active,
+  onOpen,
   onDelete,
 }: {
   row: ComparisonSummary;
   active: boolean;
+  onOpen?: () => void;
   onDelete: () => void;
 }) {
   const route = `${row.origin} → ${row.destination}`;
@@ -35,6 +37,7 @@ function RecentRow({
       <Link
         to={`/compare/${row.id}`}
         aria-current={active ? 'page' : undefined}
+        onClick={onOpen}
         className="min-w-0 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-emerald-600"
       >
         <span className="block truncate text-sm font-medium text-stone-900">{route}</span>
@@ -75,7 +78,13 @@ function RecentRow({
   );
 }
 
-export function RecentComparisons({ activeId }: { activeId?: number }) {
+interface RecentComparisonsProps {
+  activeId?: number;
+  /** Called when the user opens a saved comparison. */
+  onOpen?: () => void;
+}
+
+export function RecentComparisons({ activeId, onOpen }: RecentComparisonsProps) {
   const { data, isPending, isError, error, refetch } = useComparisonsQuery();
   const deleteComparison = useDeleteComparison();
   const [toDelete, setToDelete] = useState<ComparisonSummary | null>(null);
@@ -115,6 +124,7 @@ export function RecentComparisons({ activeId }: { activeId?: number }) {
             key={row.id}
             row={row}
             active={row.id === activeId}
+            onOpen={onOpen}
             onDelete={() => setToDelete(row)}
           />
         ))}

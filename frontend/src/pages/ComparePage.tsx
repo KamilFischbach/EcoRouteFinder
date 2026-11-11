@@ -92,10 +92,12 @@ export function ComparePage() {
       />
       <div className="mb-6">
         <TripAssistant
+          key={assistant.resetKey}
           state={assistant.state}
           mode={assistant.mode}
           onModeChange={assistant.setMode}
           onSubmit={assistant.describe}
+          onClear={assistant.clear}
           draftError={assistant.draftError}
         />
       </div>
@@ -118,7 +120,7 @@ export function ComparePage() {
           {results}
         </div>
         <div className="lg:col-start-1 lg:row-start-2">
-          <RecentComparisons activeId={id} />
+          <RecentComparisons activeId={id} onOpen={assistant.clear} />
         </div>
       </div>
     </>

@@ -188,9 +188,22 @@ export function CompareForm({
         )}
       </div>
 
-      <Button type="submit" isLoading={isSubmitting} className="w-full">
-        Compare
-      </Button>
+      <div className="flex gap-2">
+        <Button type="submit" isLoading={isSubmitting} className="flex-1">
+          Compare
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={isSubmitting}
+          onClick={() => {
+            setValues(emptyCompareForm());
+            setErrors({});
+            setSubmitted(false);
+          }}
+        >
+          Clear
+        </Button>
+      </div>
     </form>
   );
 }

@@ -200,6 +200,49 @@ describe('ComparePage history', () => {
     await waitFor(() => expect(getTripDb()[0]?.travelled_on).toBe(planned));
   });
 
+  it('clears the route form with its Clear button', async () => {
+    const { user } = renderPage();
+    await user.type(screen.getByLabelText('From'), 'Warszawa');
+    await user.type(screen.getByLabelText('To'), 'Kraków');
+
+    const form = screen.getByRole('form', { name: 'Compare form' });
+    await user.click(within(form).getByRole('button', { name: 'Clear' }));
+
+    expect(screen.getByLabelText('From')).toHaveValue('');
+    expect(screen.getByLabelText('To')).toHaveValue('');
+  });
+
+  it('clears the trip assistant with its Clear button', async () => {
+    const { user } = renderPage();
+    const assistant = screen.getByRole('region', { name: 'Trip assistant' });
+    const text = within(assistant).getByRole('textbox');
+    await user.type(text, 'Warszawa to Kraków for 2');
+
+    await user.click(within(assistant).getByRole('button', { name: 'Clear' }));
+
+    expect(
+      within(screen.getByRole('region', { name: 'Trip assistant' })).getByRole('textbox'),
+    ).toHaveValue('');
+  });
+
+  it('clears the assistant and the route form when a recent comparison is opened', async () => {
+    resetComparisonDb([savedComparison(1, '2026-10-01T10:00:00Z')]);
+    const { user } = renderPage();
+    await user.type(screen.getByLabelText('From'), 'Gdańsk');
+    await user.type(
+      within(screen.getByRole('region', { name: 'Trip assistant' })).getByRole('textbox'),
+      'Gdańsk to Sopot',
+    );
+
+    const history = await screen.findByRole('list', { name: 'Recent comparisons' });
+    await user.click(within(history).getByRole('link', { name: /Warszawa → Kraków/ }));
+
+    expect(screen.getByLabelText('From')).toHaveValue('');
+    expect(
+      within(screen.getByRole('region', { name: 'Trip assistant' })).getByRole('textbox'),
+    ).toHaveValue('');
+  });
+
   it('lists recent comparisons with route, greenest mode and savings', async () => {
     resetComparisonDb([
       savedComparison(2, new Date(Date.now() - 2 * 3_600_000).toISOString(), 'Gdańsk', 'Sopot'),

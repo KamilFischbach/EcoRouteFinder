@@ -67,6 +67,8 @@ interface TripAssistantProps {
   mode: AssistantMode;
   onModeChange: (mode: AssistantMode) => void;
   onSubmit: (text: string) => void;
+  /** Empties the text, the steps and the route form. */
+  onClear: () => void;
   /** Error of the parse request, shown when the first step failed. */
   draftError: Error | null;
 }
@@ -232,6 +234,7 @@ export function TripAssistant({
   onModeChange,
   onSubmit,
   draftError,
+  onClear,
 }: TripAssistantProps) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -317,15 +320,25 @@ export function TripAssistant({
             <ModeSwitch mode={mode} onChange={onModeChange} />
             <p className="text-xs text-stone-500">{current?.description}</p>
           </div>
-          <Button
-            type="submit"
-            isLoading={working}
-            disabled={!trimmed}
-            className="w-full sm:w-auto"
-          >
-            {!working && <AiIcon className="invert" />}
-            {current?.action}
-          </Button>
+          <div className="flex gap-2">
+            {/* Clearing remounts this card (see ComparePage), which also empties the text. */}
+            <Button
+              variant="ghost"
+              onClick={onClear}
+              disabled={working || (!text && state.phase === 'idle')}
+            >
+              Clear
+            </Button>
+            <Button
+              type="submit"
+              isLoading={working}
+              disabled={!trimmed}
+              className="flex-1 sm:flex-none"
+            >
+              {!working && <AiIcon className="invert" />}
+              {current?.action}
+            </Button>
+          </div>
         </div>
 
         {state.phase !== 'idle' && (

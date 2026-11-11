@@ -152,9 +152,20 @@ export function useTripAssistant() {
     [advice, runAdvice, startRun],
   );
 
+  /** Empties the assistant (text and steps) and the route form; a running step is forgotten. */
+  const [resetKey, setResetKey] = useState(0);
+  const clear = useCallback(() => {
+    runRef.current += 1;
+    setResetKey((key) => key + 1);
+    dispatchNow({ type: 'reset' });
+    setForm((current) => ({ key: current.key + 1, values: emptyCompareForm(), highlight: false }));
+  }, []);
+
   return {
     state,
     mode,
+    clear,
+    resetKey,
     setMode,
     describe,
     draftError: draft.error,
