@@ -66,13 +66,11 @@ export function TripsPage() {
         description="Save your journeys and see how your choice of transport affects your carbon footprint."
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-        {/* Sticky on wide screens, but it scrolls itself when taller than the window, so the
-            submit button is always reachable. */}
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <Card
           aria-label={editing ? 'Edit trip' : 'New trip'}
           className={cn(
-            'transition-shadow lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto',
+            'transition-shadow',
             editing && 'border-emerald-500 ring-4 ring-emerald-100',
           )}
         >

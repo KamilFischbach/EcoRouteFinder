@@ -82,7 +82,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col bg-linear-to-b from-emerald-50/80 via-stone-50 to-stone-50">
       <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-white/75 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <NavLink to="/" className="flex items-center gap-2 font-semibold text-stone-900">
               <span className="flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
@@ -124,12 +124,12 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
         <Outlet />
       </main>
 
       <footer className="border-t border-stone-200/70 py-6 text-xs text-stone-500">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 sm:flex-row sm:justify-between sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 sm:flex-row sm:justify-between sm:px-6">
           <p>EcoRoute · choose routes with a smaller carbon footprint</p>
           <div className="flex items-center gap-3">
             <p>

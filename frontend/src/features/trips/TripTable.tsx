@@ -18,9 +18,10 @@ const TH = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text
 export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps) {
   const today = localIsoDate();
   return (
-    // About 7 rows tall; longer lists scroll inside the card and the header stays visible.
+    // About 7 rows tall; longer lists scroll down inside the card and the header stays visible.
+    // Never sideways: the route column takes the remaining width.
     <div
-      className="max-h-[32rem] overflow-auto"
+      className="max-h-[32rem] overflow-x-hidden overflow-y-auto"
       tabIndex={0}
       role="region"
       aria-label="Saved trips, scrollable"
@@ -32,11 +33,8 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
             <th scope="col" className={cn(TH, 'sm:pl-6')}>
               Route
             </th>
-            <th scope="col" className={cn(TH, 'hidden md:table-cell')}>
+            <th scope="col" className={cn(TH, 'hidden lg:table-cell')}>
               Distance
-            </th>
-            <th scope="col" className={cn(TH, 'hidden md:table-cell')}>
-              Passengers
             </th>
             <th scope="col" className={cn(TH, 'hidden sm:table-cell')}>
               Transport
@@ -62,20 +60,22 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                     'bg-emerald-50 shadow-[inset_4px_0_0_var(--color-emerald-500)] hover:bg-emerald-50',
                 )}
               >
-                <td className="px-4 py-3.5 sm:pl-6">
-                  <div className="font-medium whitespace-nowrap text-stone-900">{route}</div>
-                  <div className="mt-0.5 text-xs text-stone-500">
+                {/* w-full + max-w-0: the route gets all spare width and is cut with "…" only
+                    when even that is not enough. */}
+                <td className="w-full max-w-0 px-4 py-3.5 sm:pl-6">
+                  <div className="truncate font-medium text-stone-900" title={route}>
+                    {route}
+                  </div>
+                  <div className="mt-0.5 truncate text-xs text-stone-500">
                     {formatDay(trip.travelled_on)}
                     {planned && (
                       <span className="ml-1.5 rounded-full bg-sky-50 px-1.5 py-px text-[11px] font-medium text-sky-700 ring-1 ring-sky-200 ring-inset">
                         Planned
                       </span>
                     )}
-                    <span className="md:hidden">
-                      {' · '}
-                      {formatDistance(trip.distance_km)} · {trip.passengers}{' '}
-                      {trip.passengers === 1 ? 'passenger' : 'passengers'}
-                    </span>
+                    <span className="lg:hidden"> · {formatDistance(trip.distance_km)}</span>
+                    {' · '}
+                    {trip.passengers} {trip.passengers === 1 ? 'passenger' : 'passengers'}
                   </div>
                   {trip.note && (
                     <div className="mt-1 line-clamp-1 text-xs text-stone-500 italic">
@@ -89,11 +89,8 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
                     </span>
                   </div>
                 </td>
-                <td className="hidden px-4 py-3.5 whitespace-nowrap text-stone-700 tabular-nums md:table-cell">
+                <td className="hidden px-4 py-3.5 whitespace-nowrap text-stone-700 tabular-nums lg:table-cell">
                   {formatDistance(trip.distance_km)}
-                </td>
-                <td className="hidden px-4 py-3.5 text-stone-700 tabular-nums md:table-cell">
-                  {trip.passengers}
                 </td>
                 <td className="hidden px-4 py-3.5 sm:table-cell">
                   <ModeBadge mode={trip.mode} />
