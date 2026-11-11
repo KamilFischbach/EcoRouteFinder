@@ -4,7 +4,7 @@
 
 **EcoRoute compares ways to travel the same route by time, cost and carbon footprint.** Enter where you start, where you're going and how many people are travelling. EcoRoute compares a petrol car, an electric car, train, coach, plane and bike, and lets you keep a history of your trips.
 
-> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, and the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM) the dashboard and an MCP server for AI agents work end to end. The map is next.
+> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM), the dashboard and an MCP server for AI agents work end to end.
 
 A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and act as an advisor. The core rule: **the LLM never calculates emissions.** Deterministic code does the maths; the model only picks tools and explains the results. Every AI feature has a rule-based fallback, so the app works without a model.
 
@@ -35,7 +35,6 @@ _Coming soon._
 | AI | Local LLM via [Ollama](https://ollama.com) 0.9+ (`qwen3:8b`, thinking off) over plain `httpx`: structured output + tool calling |
 | MCP | Official SDKs: `mcp` (Python server, stdio + Streamable HTTP), `@modelcontextprotocol/client` (web client) |
 | External data | OpenStreetMap Nominatim + OSRM (routes), Open-Meteo (weather); no API keys |
-| Planned | react-leaflet (map) |
 | CI | GitHub Actions (parallel backend and frontend jobs) |
 
 ## Project structure

@@ -4,11 +4,10 @@ Instructions for AI coding agents (and humans) working on **EcoRoute**. Read thi
 
 ## 1. What this project is
 
-EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. A dashboard shows the footprint over time, CO₂ saved and eco-points. An MCP server exposes the tool registry to AI agents. Planned next: a map.
+EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. A dashboard shows the footprint over time, CO₂ saved and eco-points. An MCP server exposes the tool registry to AI agents.
 
 Status:
 - **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history and EcoAdvisor card; trip assistant (free text → Auto: compare + advice in one go / Manual: fill the form, with parsed preferences); AI status badge; trip travel date (`travelled_on`); dashboard statistics (`services/stats.py` + `eco_points.py`, `GET /stats`), demo seed (`python -m app.seed`) and the Dashboard page; MCP server over the tool registry (`app/mcp_server.py`: stdio + Streamable HTTP at `/mcp`) and the MCP tools page (`/tools`, a real MCP client).
-- **Not implemented yet:** the map. Do not treat it as implemented.
 
 **All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values (`co2_saved_vs_petrol_car_kg`, `petrol_car_co2_kg`) compare against **the same group going together by petrol car**, per person, so the petrol car itself saves 0. Keep it that way. Numbers shown to users or the LLM as text are formatted only by `services/formatting.py` (same rounding as `frontend/src/lib/format.ts`).
 
@@ -113,7 +112,7 @@ More rules:
 - Styling: Tailwind utility classes only, no CSS modules or inline `style`. Palette: `emerald`/`lime` accents on `stone`/white. Mobile-first: make it work at 375px, then add `sm:`/`md:`/`lg:`.
 - Accessibility: every input has a `<label>`; errors are linked with `aria-invalid` and `aria-describedby`; icon-only buttons get `aria-label`. Tests query by role/label, so this is enforced.
 - Everything is in **English**: UI copy, code, comments and identifiers.
-- `recharts` and `react-leaflet` are installed for the dashboard and map. Use them there; do not add other chart or map libraries.
+- Charts use `recharts` only; do not add other chart libraries.
 
 ## 5. AI rules (non-negotiable)
 
