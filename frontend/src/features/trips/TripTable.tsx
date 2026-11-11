@@ -1,6 +1,7 @@
 import { Button } from '@/components/Button';
 import { cn } from '@/lib/cn';
 import { formatCo2, formatDay, formatDistance } from '@/lib/format';
+import { localIsoDate } from '@/lib/validators';
 import type { Trip } from '@/types/trip';
 
 import { ModeBadge } from './ModeBadge';
@@ -15,11 +16,18 @@ interface TripTableProps {
 const TH = 'px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-stone-500';
 
 export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps) {
+  const today = localIsoDate();
   return (
-    <div className="overflow-x-auto">
+    // About 7 rows tall; longer lists scroll inside the card and the header stays visible.
+    <div
+      className="max-h-[32rem] overflow-auto"
+      tabIndex={0}
+      role="region"
+      aria-label="Saved trips, scrollable"
+    >
       <table className="w-full text-sm">
         <caption className="sr-only">Saved trips</caption>
-        <thead className="bg-stone-50/80">
+        <thead className="sticky top-0 z-10 bg-stone-50">
           <tr>
             <th scope="col" className={cn(TH, 'sm:pl-6')}>
               Route
@@ -44,18 +52,25 @@ export function TripTable({ trips, editingId, onEdit, onDelete }: TripTableProps
         <tbody className="divide-y divide-stone-100">
           {trips.map((trip) => {
             const route = `${trip.origin} → ${trip.destination}`;
+            const planned = trip.travelled_on > today;
             return (
               <tr
                 key={trip.id}
                 className={cn(
                   'transition-colors hover:bg-stone-50/60',
-                  editingId === trip.id && 'bg-emerald-50/60 hover:bg-emerald-50/60',
+                  editingId === trip.id &&
+                    'bg-emerald-50 shadow-[inset_4px_0_0_var(--color-emerald-500)] hover:bg-emerald-50',
                 )}
               >
                 <td className="px-4 py-3.5 sm:pl-6">
-                  <div className="font-medium text-stone-900">{route}</div>
+                  <div className="font-medium whitespace-nowrap text-stone-900">{route}</div>
                   <div className="mt-0.5 text-xs text-stone-500">
                     {formatDay(trip.travelled_on)}
+                    {planned && (
+                      <span className="ml-1.5 rounded-full bg-sky-50 px-1.5 py-px text-[11px] font-medium text-sky-700 ring-1 ring-sky-200 ring-inset">
+                        Planned
+                      </span>
+                    )}
                     <span className="md:hidden">
                       {' · '}
                       {formatDistance(trip.distance_km)} · {trip.passengers}{' '}

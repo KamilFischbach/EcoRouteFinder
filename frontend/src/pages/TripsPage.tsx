@@ -8,6 +8,7 @@ import { TripForm } from '@/features/trips/TripForm';
 import { TripHistory } from '@/features/trips/TripHistory';
 import { useCreateTrip, useDeleteTrip, useUpdateTrip } from '@/features/trips/useTrips';
 import { toFormValues } from '@/features/trips/validation';
+import { cn } from '@/lib/cn';
 import type { Trip, TripInput } from '@/types/trip';
 
 export function TripsPage() {
@@ -65,10 +66,29 @@ export function TripsPage() {
         description="Save your journeys and see how your choice of transport affects your carbon footprint."
       />
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-        <Card className="lg:sticky lg:top-24">
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        {/* Sticky on wide screens, but it scrolls itself when taller than the window, so the
+            submit button is always reachable. */}
+        <Card
+          aria-label={editing ? 'Edit trip' : 'New trip'}
+          className={cn(
+            'transition-shadow lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto',
+            editing && 'border-emerald-500 ring-4 ring-emerald-100',
+          )}
+        >
           <CardHeader
-            title={editing ? 'Edit trip' : 'New trip'}
+            title={
+              editing ? (
+                <span className="flex items-center gap-2">
+                  Edit trip
+                  <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
+                    Editing
+                  </span>
+                </span>
+              ) : (
+                'New trip'
+              )
+            }
             description={
               editing
                 ? `${editing.origin} → ${editing.destination}`

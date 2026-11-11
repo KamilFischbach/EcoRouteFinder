@@ -75,6 +75,26 @@ describe('TripsPage list', () => {
     expect(screen.getByLabelText('From')).toHaveValue('');
   });
 
+  it('marks the form clearly while a trip is being edited', async () => {
+    const { user } = renderWithProviders(<TripsPage />);
+    await screen.findByText('Warszawa → Gdańsk');
+
+    await user.click(screen.getByRole('button', { name: 'Edit trip Warszawa → Gdańsk' }));
+
+    const form = screen.getByRole('region', { name: 'Edit trip' });
+    expect(within(form).getByText('Editing')).toBeInTheDocument();
+    expect(within(form).getByLabelText('From')).toHaveValue('Warszawa');
+  });
+
+  it('keeps the trip list in a scrollable area', async () => {
+    renderWithProviders(<TripsPage />);
+    await screen.findByText('Warszawa → Gdańsk');
+
+    expect(screen.getByRole('region', { name: 'Saved trips, scrollable' })).toContainElement(
+      screen.getByRole('table', { name: 'Saved trips' }),
+    );
+  });
+
   it('deletes a trip after confirmation', async () => {
     const { user } = renderWithProviders(<TripsPage />);
     await screen.findByText('Warszawa → Gdańsk');
