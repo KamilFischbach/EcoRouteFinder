@@ -76,7 +76,7 @@ export function KpiTiles({ stats }: { stats: Stats }) {
       <KpiTile
         title="Trips"
         value={totals.trips.toLocaleString('en-GB')}
-        caption={`${formatDistance(totals.km_not_driven)} not driven`}
+        caption={`${formatDistance(totals.km_not_driven)} not driven by car`}
       />
       <KpiTile
         title="Eco-points"
