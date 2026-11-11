@@ -18,3 +18,4 @@
 - The developer works on **Windows / PowerShell**. Give commands that work in PowerShell (`;` not `&&` in Windows PowerShell 5.1; `.\.venv\Scripts\...`).
 - The backend targets Python 3.12 (CI). Any local Python >= 3.12 is fine.
 - Line endings are LF (`.gitattributes`). Don't introduce CRLF.
+- Run Vitest from PowerShell (or a `C:\...` path). From Git Bash in `/c/...` every suite fails with "Vitest failed to find the runner" (Vitest gets loaded twice under two drive-letter spellings). It is not a code bug.

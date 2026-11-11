@@ -4,7 +4,7 @@
 
 **EcoRoute compares ways to travel the same route by time, cost and carbon footprint.** Enter where you start, where you're going and how many people are travelling. EcoRoute compares a petrol car, an electric car, train, coach, plane and bike, and lets you keep a history of your trips.
 
-> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, and the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM) and the dashboard work end to end. The map is next.
+> **Status:** trip history, CO₂ per trip, the mode comparison with saved history, and the AI features (free-text trip parser and the EcoAdvisor agent on a local LLM) the dashboard and an MCP server for AI agents work end to end. The map is next.
 
 A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and act as an advisor. The core rule: **the LLM never calculates emissions.** Deterministic code does the maths; the model only picks tools and explains the results. Every AI feature has a rule-based fallback, so the app works without a model.
 
@@ -16,6 +16,7 @@ A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and ac
 - [x] Comparison history: every comparison is saved as a snapshot, linkable at `/compare/:id`
 - [x] Trip assistant: describe the trip once (English or Polish); **Auto** compares and asks EcoAdvisor in one go, **Manual** only fills in the form
 - [x] EcoAdvisor: a tool-calling agent that recommends one option, checks the weather and explains why, taking your preferences (luggage, skis, comfort, budget, speed) into account, with a rule-based fallback
+- [x] MCP server: the same tools as EcoAdvisor plus `get_trip_stats`, over stdio (Claude Desktop, MCP Inspector) and Streamable HTTP, with an **MCP tools** page in the app that is a real MCP client
 - [x] REST API with validation and a consistent error format
 - [x] Dashboard: CO₂ footprint over time, CO₂ saved vs petrol car, CO₂ by mode, eco-points and levels, best trip
 
@@ -32,8 +33,9 @@ _Coming soon._
 | Frontend | Vite, React 19, TypeScript (strict), React Router, TanStack Query, Tailwind CSS 4 |
 | Frontend quality | Vitest, React Testing Library, MSW, ESLint, Prettier |
 | AI | Local LLM via [Ollama](https://ollama.com) 0.9+ (`qwen3:8b`, thinking off) over plain `httpx`: structured output + tool calling |
+| MCP | Official SDKs: `mcp` (Python server, stdio + Streamable HTTP), `@modelcontextprotocol/client` (web client) |
 | External data | OpenStreetMap Nominatim + OSRM (routes), Open-Meteo (weather); no API keys |
-| Planned | react-leaflet (map), dashboard charts |
+| Planned | react-leaflet (map) |
 | CI | GitHub Actions (parallel backend and frontend jobs) |
 
 ## Project structure
@@ -49,6 +51,7 @@ backend/
     repositories/      # database access
     services/          # business logic: trips, comparisons + snapshots, emissions + factors, routing, weather, advice, stats + eco-points
     ai/                # LLM client (Ollama), prompts, tool registry, trip parser + rules, advisor agent
+    mcp_server.py      # MCP server over the tool registry: `python -m app.mcp_server` (stdio), /mcp (HTTP)
     api/v1/            # routers: health, trips, comparisons (+ advice), trip-drafts, stats
     seed.py            # `python -m app.seed`: demo trips for the dashboard
   tests/               # api/ and unit/ tests (in-memory SQLite)
@@ -61,8 +64,9 @@ frontend/
     features/compare/  # compare form, results, CO2 chart, history, EcoAdvisor card
     features/ai/       # AI status badge (polls /health)
     features/dashboard/ # stats query, range switch, KPI tiles, level, charts, best trip, summary text
+    features/mcp/      # MCP tools page: tool cards, forms built from JSON schema, MCP badge
     lib/               # formatting, shared validators, helpers
-    pages/             # Trips, Compare, Dashboard
+    pages/             # Trips, Compare, Dashboard, MCP tools
     types/             # shared TypeScript types
     test/              # Vitest setup, MSW handlers
 .github/workflows/ci.yml
@@ -315,6 +319,47 @@ flowchart TD
 
 **Known limitations.** A 7B model reliably picks a sensible option, but it sometimes compares numbers wrongly or invents them (e.g. calling the most expensive practical option "one of the cheapest"). The summary check catches superlatives, comparatives and numbers that don't match the data; vaguer wording ("a cost-effective option") can still slip through, which is why the reasons shown under the summary are always generated from the data. The rule-based parser keeps Polish place names as written ("z Gdyni" → "Gdyni"); the geocoder usually copes.
 
+## MCP server
+
+EcoRoute's tools are also served over the [Model Context Protocol](https://modelcontextprotocol.io), so any AI agent can use them. The server (`backend/app/mcp_server.py`) does not define tools of its own: it lists every tool of the registry in `app/ai/tools.py` (name, description, JSON schema of the Pydantic arguments) and runs calls through the registry, with the same validation and error handling as EcoAdvisor. All tools are **read-only**.
+
+| Tool | What it returns |
+|---|---|
+| `compare_travel_options` | Time, cost and CO₂ per person of all modes for a route |
+| `get_weather` | Current weather for a place |
+| `calculate_emissions` | kg CO₂ per person for a distance, mode and group size |
+| `get_trip_stats` | Footprint, net CO₂ saved, km not driven, eco-points and level for `30d` / `90d` / `12m` / `all`: the same numbers as the Dashboard (MCP only; EcoAdvisor doesn't use it yet) |
+
+Results carry the raw values and ready-to-quote strings (`quote`) from `services/formatting.py`, so an agent never has to round or compute anything.
+
+**In the app.** The **MCP tools** page (`/tools`) is a real MCP client (official TypeScript SDK). It connects to `http://localhost:8000/mcp` over Streamable HTTP, lists the tools and runs them, showing the JSON-RPC request and the result. It does not use the REST API. Run `get_trip_stats` with `90d` and compare it with the Dashboard.
+
+**From an MCP client (stdio).** Start nothing else; the client launches the server:
+
+```powershell
+cd backend
+npx @modelcontextprotocol/inspector .\.venv\Scripts\python -m app.mcp_server   # MCP Inspector in the browser
+```
+
+Claude Desktop (`claude_desktop_config.json`), with your own paths. `PYTHONPATH` lets Python find `app`, and an absolute `DATABASE_URL` points at the same database as the web app:
+
+```json
+{
+  "mcpServers": {
+    "ecoroute": {
+      "command": "C:\\path\\to\\EcoRouteFinder\\backend\\.venv\\Scripts\\python.exe",
+      "args": ["-m", "app.mcp_server"],
+      "env": {
+        "PYTHONPATH": "C:\\path\\to\\EcoRouteFinder\\backend",
+        "DATABASE_URL": "sqlite:///C:/path/to/EcoRouteFinder/backend/ecoroute.db"
+      }
+    }
+  }
+}
+```
+
+**Security.** The HTTP endpoint only accepts local hosts and the origins in `CORS_ORIGINS` (DNS rebinding protection). There is no authentication, so keep it on localhost.
+
 ## Running tests and checks
 
 ```powershell
@@ -324,6 +369,8 @@ ruff check . ; ruff format --check . ; mypy app ; pytest
 # frontend/
 npm run lint ; npm run typecheck ; npx vitest run ; npm run build
 ```
+
+On Windows, run the frontend checks from PowerShell or with an upper-case drive path (`C:\...`). From Git Bash in `/c/...`, Vitest can load itself twice and every suite fails with "Vitest failed to find the runner".
 
 CI runs the same steps on every push and pull request.
 

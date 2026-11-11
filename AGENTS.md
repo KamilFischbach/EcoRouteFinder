@@ -4,17 +4,17 @@ Instructions for AI coding agents (and humans) working on **EcoRoute**. Read thi
 
 ## 1. What this project is
 
-EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. A dashboard shows the footprint over time, CO₂ saved and eco-points. Planned next: a map, an MCP server on top of `ai/tools.py` and `StatsService`.
+EcoRoute compares ways to travel a route (petrol car, EV, train, coach, plane, bike) by **time, cost and kg CO₂**. Users save trips and comparisons to a history. AI features run on a **local Ollama** model (free-text trip parser and a tool-calling advisor), always with a rule-based fallback. A dashboard shows the footprint over time, CO₂ saved and eco-points. An MCP server exposes the tool registry to AI agents. Planned next: a map.
 
 Status:
-- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history and EcoAdvisor card; trip assistant (free text → Auto: compare + advice in one go / Manual: fill the form, with parsed preferences); AI status badge; trip travel date (`travelled_on`); dashboard statistics (`services/stats.py` + `eco_points.py`, `GET /stats`), demo seed (`python -m app.seed`) and the Dashboard page.
-- **Not implemented yet:** the map and the MCP server. Do not treat them as implemented.
+- **Implemented:** Trip CRUD with CO₂ per person; emission/cost/time calculator (`services/emissions.py` + `transport_factors.py`); routing via Nominatim + OSRM with fallback (`services/routing.py`); comparisons with saved history and JSON snapshots (`services/comparison_service.py`, `comparison_snapshot.py`); weather via Open-Meteo (`services/weather.py`); `OllamaClient`, trip parser + rules, tool registry and EcoAdvisor agent (`app/ai/`); Compare page with chart, history and EcoAdvisor card; trip assistant (free text → Auto: compare + advice in one go / Manual: fill the form, with parsed preferences); AI status badge; trip travel date (`travelled_on`); dashboard statistics (`services/stats.py` + `eco_points.py`, `GET /stats`), demo seed (`python -m app.seed`) and the Dashboard page; MCP server over the tool registry (`app/mcp_server.py`: stdio + Streamable HTTP at `/mcp`) and the MCP tools page (`/tools`, a real MCP client).
+- **Not implemented yet:** the map. Do not treat it as implemented.
 
 **All CO₂ and cost values are per person**, everywhere (API, DB `co2_kg`, UI). Car emissions are split between passengers; "saved" values (`co2_saved_vs_petrol_car_kg`, `petrol_car_co2_kg`) compare against **the same group going together by petrol car**, per person, so the petrol car itself saves 0. Keep it that way. Numbers shown to users or the LLM as text are formatted only by `services/formatting.py` (same rounding as `frontend/src/lib/format.ts`).
 
 **Statistics are computed only by `services/stats.py`** (`aggregate_stats`: a pure function of trips + range + today, rounding in one place) and `services/eco_points.py` (points and level thresholds). The UI never recalculates them: when a screen needs a new number (a difference, points left), add it to `StatsRead` instead.
 
-Services that AI tools (and later an MCP server) call (`emissions`, `routing`, `weather`, `ComparisonService.compute`, `aggregate_stats`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
+Services that AI tools and the MCP server call (`emissions`, `routing`, `weather`, `ComparisonService.compute`, `aggregate_stats`) take plain values and return frozen dataclasses. Keep them free of FastAPI and Pydantic request models.
 
 ## 2. Repository map
 
@@ -45,6 +45,8 @@ backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
                            previous period, best trip) + StatsService (one repository query)
     eco_points.py          Eco-points per trip (never negative) and level thresholds
   app/seed.py            `python -m app.seed [--force]`: demo trips; refuses a non-empty DB without --force
+  app/mcp_server.py      MCP server over the tool registry: stdio (`python -m app.mcp_server`) and Streamable
+                         HTTP at /mcp (mounted in main.py; local hosts + CORS_ORIGINS only)
   app/ai/
     llm_client.py          LLMClient Protocol, OllamaClient (httpx), LLMError, message helpers
     prompts.py             ALL prompts (versioned constants)
@@ -70,7 +72,8 @@ frontend/                Vite + React 19 + TypeScript (strict) + Tailwind 4
   src/features/ai/       AI status badge + useHealthQuery
   src/features/dashboard/ statsKeys + useStatsQuery, RangeSwitch (?range=), KpiTiles, LevelCard,
                          TimelineChart, ModeChart (sr-only tables), BestTripCard, summary.ts (pure text rules)
-  src/pages/             Route-level components: TripsPage, ComparePage and DashboardPage (both lazy-loaded)
+  src/features/mcp/      MCP tools page parts: McpToolCard, McpBadge, toolForm.ts (JSON schema -> form, pure)
+  src/pages/             Route-level components: TripsPage, ComparePage, DashboardPage, ToolsPage (last three lazy)
   src/lib/               Small helpers: cn, format, styles, validators (shared field rules)
   src/types/             Shared TS types mirroring backend schemas
   src/test/              Vitest setup, MSW server + handlers, render helpers
@@ -103,7 +106,7 @@ More rules:
 - Components are **function components** with typed props (`interface XxxProps`). No class components, no default exports (except config files).
 - **Data fetching only through hooks** in `features/<feature>/useXxx.ts` built on TanStack Query. Components never call `fetch` or `apiFetch` directly.
 - **Multi-step AI flows are orchestrated in a hook, not in components and not in a new backend endpoint.** `useTripAssistant` chains the existing mutations (draft → comparison → advice); the step logic is a pure reducer in a `.ts` file with unit tests. Results render as soon as the comparison exists; advice arrives on its own, and its failure never hides the results.
-- HTTP goes through `src/api/client.ts` (`apiFetch`). Base URL comes from `VITE_API_URL`. Endpoint functions live in `src/api/<resource>.ts`.
+- HTTP goes through `src/api/client.ts` (`apiFetch`). The only exception is `src/api/mcp.ts`, the MCP client (official SDK, JSON-RPC to `/mcp`); its failures become `ApiError` code `MCP_UNAVAILABLE`. Base URL comes from `VITE_API_URL`. Endpoint functions live in `src/api/<resource>.ts`.
 - Query keys come from a key factory (`tripKeys`, `statsKeys`). Mutations invalidate `tripKeys.all` (and trip mutations also `statsKeys.all`) instead of hand-editing the cache.
 - Every data view handles **loading, empty and error** states (`Spinner`, `EmptyState`, `ErrorState`). User-facing error text comes from `getErrorMessage()`.
 - Pure logic (validation, mapping, formatting) goes in `.ts` files next to the feature and gets unit tests. `.tsx` files export components only (enforced by `react-refresh/only-export-components`).
@@ -121,7 +124,7 @@ More rules:
 5. **Structured output is validated.** Pass a JSON schema (from the Pydantic model's `model_json_schema()`) and validate the reply with that model. Invalid output means fallback, not a crash.
 6. Tool calls are bounded (`MAX_STEPS`) and tool arguments are validated before execution.
 7. Model and host come from settings (`OLLAMA_HOST`, `OLLAMA_MODEL`, default `qwen3:8b`; `OLLAMA_THINK`, default `false`). Respect `AI_ENABLED=false`.
-8. **Tools are defined only in `app/ai/tools.py`** (the registry: name + description + Pydantic args model + handler). Handlers are thin wrappers around services: no maths, no DB writes, no FastAPI. A tool failure returns `{"error": ...}` to the model, never an exception. The same registry will back the MCP server, so keep it framework-free.
+8. **Tools are defined only in `app/ai/tools.py`** (the registry: name + description + Pydantic args model + handler). Handlers are thin wrappers around services: no maths, no DB writes, no FastAPI. A tool failure returns `{"error": ...}` to the model, never an exception. The same registry backs the MCP server (`app/mcp_server.py` only adapts it to the protocol; never define a tool there), so keep it framework-free. MCP tools stay **read-only**. `get_trip_stats` is registered only when a stats source is passed (the MCP server does, the advisor doesn't yet).
 9. **Ground every AI answer in data.** A recommendation must be a `practical` option of the comparison (and respect the luggage/equipment/comfort/weather rules of `suitable_options`, checked in `check_grounding`); numbers the model may quote come as ready-made strings from `services/formatting.py`; extracted places must occur in the user's text. The advisor's reasons (numbers, cheapest/fastest/greenest) are generated by `advice_facts.build_reasons`, never by the LLM; the LLM's summary is checked by `check_summary` (false superlatives/comparatives or numbers not in the data → fallback). Add a check whenever you add an AI output that the UI trusts.
 10. **Keep AI answers transparent:** return `used_llm`, `model` and a tool trace so the UI can show "AI" vs "Rule-based" and "How I got this".
 11. Ollama API facts (checked against docs/api.md and a 0.9.6 server): `tool_calls[].function.arguments` is an object, tool results go back as `{"role": "tool", "content", "tool_name"}`, and `format` takes a JSON schema. Don't send `tools` and `format` in the same call. Every `/api/chat` call sends `think` explicitly (Ollama >= 0.9.0): if it is omitted, Qwen3 thinks by default, and on 0.9.x the `<think>` text ends up in `content`.
