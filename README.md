@@ -22,7 +22,13 @@ A local LLM (via [Ollama](https://ollama.com)) will parse free-text trips and ac
 
 ## Creative twist
 
-_Coming soon._
+**An eco travel advisor that is not allowed to do maths.** EcoRoute doesn't just list numbers; it tells you which way to travel and why, and every number it says comes from deterministic code.
+
+- **Describe your trip in one sentence** (English or Polish), e.g. *"Ski trip Tczew → Karpacz for 2 with equipment"*. A local LLM (Ollama) extracts the route, group size and what matters to you; a regex parser takes over when no model is running.
+- **EcoAdvisor** compares six modes, checks the weather at the destination and recommends one practical option. It uses tools (comparison, emissions, weather) instead of guessing, its pick is checked against rules (no bike with skis or in the rain), and a summary with wrong numbers or false claims ("the cheapest") is rejected. Every answer shows whether it came from the AI or the rule-based fallback, plus a "How I got this" trace.
+- **CO₂ saved vs the same group by petrol car**, per person: going by train with a friend is compared with the two of you sharing a car, not with driving alone.
+- **Eco-points and levels** (Seedling → Forest): 10 points per kg of CO₂ saved, never negative, on a dashboard with your footprint over time.
+- **The same tools for any AI agent**: an MCP server exposes them, so Claude Desktop can answer "how much CO₂ did I save this month?" with the dashboard's numbers. The **MCP tools** page in the app is a live MCP client.
 
 ## Tech stack
 
@@ -375,7 +381,12 @@ CI runs the same steps on every push and pull request.
 
 ## How I used AI
 
-_Coming soon._ The rules given to coding agents are in [AGENTS.md](AGENTS.md).
+I built EcoRoute with **Claude Code** (VS Code extension) as a pair programmer, and I made the architecture and product decisions myself.
+
+- **Rules first.** Before any feature code the repo got [AGENTS.md](AGENTS.md), the source of truth for agents: layers and what each may not do, naming, test requirements, AI rules ("the LLM never calculates", "always a fallback") and a Definition of Done. [CLAUDE.md](CLAUDE.md) adds Claude-specific habits: small steps, run every check before saying "done", don't add dependencies without a reason, Windows/PowerShell commands.
+- **Plan, approve, then build in stages.** Each feature started as a written task with goals, definitions and stages. Claude proposed a plan, raised conflicts with AGENTS.md (e.g. how to migrate the database) and asked about open decisions; I approved or corrected it. Each stage ended with the full lint, type and test run and its own Conventional Commit.
+- **Checked, not trusted.** I reviewed every change, tested the app by hand and asked for fixes (layout, wording, UX details). When an API looked unfamiliar (Vite 8, Vitest 5, MSW 3, the MCP SDKs), Claude read the installed package's code and types instead of relying on memory.
+- **AI inside the app** runs on a local model via Ollama (`qwen3:8b`), never on a paid API, and each AI feature has a rule-based fallback, so the app works fully offline.
 
 ## Demo (GIF)
 
