@@ -77,6 +77,8 @@ frontend/                Vite + React 19 + TypeScript (strict) + Tailwind 4
   src/types/             Shared TS types mirroring backend schemas
   src/test/              Vitest setup, MSW server + handlers, render helpers
 .github/workflows/ci.yml Backend + frontend jobs (lint, format, types, tests, build)
+README.md                What the app does, demo, how AI was used, how to run it
+DETAILS.md               Technical details: structure, config, API, emissions, dashboard, AI, MCP, tests
 ```
 
 ## 3. Backend architecture rules
@@ -159,7 +161,7 @@ More rules:
 
 Every new piece of logic ships with tests in the same commit:
 - **Backend**: an API test for each endpoint status path (success, 404, 422, ...) in `tests/api/`, and unit tests for service and pure logic in `tests/unit/`. Use the `client`/`session` fixtures from `conftest.py` (in-memory SQLite). Never touch `ecoroute.db` or the network in tests: API tests get a `FakeRouteProvider` automatically (fixture `route_provider`), and HTTP clients are tested with `httpx.MockTransport`.
-- **Factors**: when you change a number in `transport_factors.py`, update its source comment and the README table, and fix the hand-computed expectations in the tests.
+- **Factors**: when you change a number in `transport_factors.py`, update its source comment and the factor table in DETAILS.md, and fix the hand-computed expectations in the tests.
 - **Frontend**: React Testing Library + `user-event`, querying by role or label. Mock HTTP only with MSW (`src/test/handlers.ts`, override per test with `server.use`). Don't mock hooks or `fetch` directly. MSW 3 option name: `onUnhandledFrame` (not `onUnhandledRequest`).
 - AI code: test with `FakeLLMClient` from `tests/fakes.py` (a script of `reply(...)`, `call_tool(...)` or exceptions), covering the LLM path **and** every fallback trigger (offline, error, bad JSON, schema violation, failed grounding, too many steps). API tests switch the LLM with the `llm` fixture (`llm.client = FakeLLMClient(...)`). MSW handlers that read a request body in an override must use `request.clone()`.
 - Before changing a prompt, run a quick manual check against a real Ollama (2-3 English and Polish examples) and note the result in the commit body.
@@ -207,6 +209,6 @@ A task is done only when all of these are true:
 - [ ] New logic has tests (both success and failure paths).
 - [ ] Layer rules (section 3/4) and AI rules (section 5) are respected.
 - [ ] Backend and frontend contracts are in sync (`schemas/*.py` ↔ `src/types/*.ts`, validation limits).
-- [ ] New config is in `Settings` **and** `.env.example`. New commands are in the README.
+- [ ] New config is in `Settings` **and** `.env.example`. New commands are in the README (running the app) or DETAILS.md (everything else).
 - [ ] UI changes handle loading, empty and error states, and work at mobile width.
 - [ ] Committed with a Conventional Commit message. No stray TODOs without an area tag.

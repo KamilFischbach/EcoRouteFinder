@@ -66,7 +66,7 @@ FACTORS: dict[TransportMode, TransportFactors] = {
     ),
     TransportMode.TRAIN: TransportFactors(
         # DESNZ 2026, Business travel - land, Rail, National rail: 0.03092 kg CO2e/passenger-km.
-        # UK average used as a proxy for Polish rail (simplification; see README).
+        # UK average used as a proxy for Polish rail (simplification; see DETAILS.md).
         co2_kg_per_km=0.03092,
         shared_by_passengers=False,
         # approx.: typical 2nd-class long-distance ticket price per km.

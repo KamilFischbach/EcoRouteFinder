@@ -1,6 +1,6 @@
 """Eco-points and levels: a small reward for choosing low-carbon transport.
 
-Rules (keep README "Dashboard" in sync):
+Rules (keep the "Dashboard" section of DETAILS.md in sync):
 - A trip earns `POINTS_PER_KG_SAVED` points for every kg of CO2 it saved per person compared
   with the same group going by petrol car, rounded to a whole number.
 - A trip that saved nothing or emitted more than the petrol car (e.g. a flight) earns 0.

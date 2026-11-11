@@ -1,6 +1,6 @@
 """Dashboard statistics: carbon footprint over time, CO2 saved and eco-points.
 
-Definitions (keep README "Dashboard" in sync):
+Definitions (keep the "Dashboard" section of DETAILS.md in sync):
 - Footprint: the sum of `trip.co2_kg`, which is CO2 **per person**. Old rows without it are
   computed on the fly with `calculate_emissions`.
 - Saved: per trip, the petrol car's CO2 for the same distance and the same group (per person)
