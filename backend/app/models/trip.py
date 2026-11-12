@@ -30,7 +30,8 @@ class Trip(SQLModel, table=True):
     distance_km: float
     passengers: int
     mode: TransportMode = Field(index=True)
-    # Filled by services/emissions.py once implemented; never by an LLM.
+    # Per person. TripService sets it from services/emissions.py on every create and update;
+    # never by an LLM. Nullable only so rows saved before emissions existed stay valid.
     co2_kg: float | None = None
     note: str | None = Field(default=None, max_length=500)
     # The day of the journey (chosen by the user); statistics group trips by it.
