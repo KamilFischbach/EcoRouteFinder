@@ -117,7 +117,7 @@ def test_update_trip_more_than_a_year_ahead_returns_422(
     trip = _create(client, make_trip_payload())
     too_far = (datetime.now(UTC) + timedelta(days=400)).date().isoformat()
 
-    response = client.put(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": too_far})
+    response = client.patch(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": too_far})
 
     assert response.status_code == 422
 
@@ -127,7 +127,7 @@ def test_update_trip_rejects_null_travel_date(
 ) -> None:
     trip = _create(client, make_trip_payload())
 
-    response = client.put(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": None})
+    response = client.patch(f"{TRIPS_URL}/{trip['id']}", json={"travelled_on": None})
 
     assert response.status_code == 422
 
@@ -205,7 +205,7 @@ def test_update_trip_changes_only_sent_fields(
 ) -> None:
     created = _create(client, make_trip_payload())
 
-    response = client.put(f"{TRIPS_URL}/{created['id']}", json={"passengers": 4, "mode": "coach"})
+    response = client.patch(f"{TRIPS_URL}/{created['id']}", json={"passengers": 4, "mode": "coach"})
 
     assert response.status_code == 200
     body = response.json()
@@ -218,7 +218,7 @@ def test_update_trip_changes_only_sent_fields(
 def test_update_trip_recalculates_co2(client: TestClient, make_trip_payload: MakePayload) -> None:
     created = _create(client, make_trip_payload())
 
-    response = client.put(
+    response = client.patch(
         f"{TRIPS_URL}/{created['id']}", json={"mode": "car_petrol", "distance_km": 100}
     )
 
@@ -230,7 +230,7 @@ def test_update_trip_recalculates_co2(client: TestClient, make_trip_payload: Mak
 def test_update_trip_can_clear_note(client: TestClient, make_trip_payload: MakePayload) -> None:
     created = _create(client, make_trip_payload())
 
-    response = client.put(f"{TRIPS_URL}/{created['id']}", json={"note": None})
+    response = client.patch(f"{TRIPS_URL}/{created['id']}", json={"note": None})
 
     assert response.status_code == 200
     assert response.json()["note"] is None
@@ -245,16 +245,26 @@ def test_update_trip_invalid_returns_422(
 ) -> None:
     created = _create(client, make_trip_payload())
 
-    response = client.put(f"{TRIPS_URL}/{created['id']}", json=payload)
+    response = client.patch(f"{TRIPS_URL}/{created['id']}", json=payload)
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_update_missing_trip_returns_404(client: TestClient) -> None:
-    response = client.put(f"{TRIPS_URL}/999", json={"passengers": 2})
+    response = client.patch(f"{TRIPS_URL}/999", json={"passengers": 2})
 
     assert response.status_code == 404
+
+
+def test_put_is_not_allowed_because_updates_are_partial(
+    client: TestClient, make_trip_payload: MakePayload
+) -> None:
+    created = _create(client, make_trip_payload())
+
+    response = client.put(f"{TRIPS_URL}/{created['id']}", json={"passengers": 4})
+
+    assert response.status_code == 405
 
 
 # --- delete -----------------------------------------------------------------

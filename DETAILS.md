@@ -57,7 +57,7 @@ REST under `/api/v1`, interactive docs at `http://localhost:8000/docs`.
 
 | Resource | Endpoints |
 |---|---|
-| Trips | `GET /trips?mode=`, `POST /trips`, `GET /trips/{id}`, `PUT /trips/{id}`, `DELETE /trips/{id}` |
+| Trips | `GET /trips?mode=`, `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}` (partial update), `DELETE /trips/{id}` |
 | Comparisons | `POST /comparisons`, `GET /comparisons`, `GET /comparisons/{id}`, `DELETE /comparisons/{id}` |
 | Advice | `POST /comparisons/{id}/advice` (always `200`: AI or rule-based) |
 | Trip parser | `POST /trip-drafts` (text → form fields; stores nothing) |

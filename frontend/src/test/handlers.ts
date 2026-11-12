@@ -409,7 +409,7 @@ export const handlers = [
     return HttpResponse.json(trip, { status: 201 });
   }),
 
-  http.put(`${API_URL}/trips/:id`, async ({ params, request }) => {
+  http.patch(`${API_URL}/trips/:id`, async ({ params, request }) => {
     const index = trips.findIndex((trip) => trip.id === Number(params.id));
     const current = trips[index];
     if (!current) return notFound(params.id);

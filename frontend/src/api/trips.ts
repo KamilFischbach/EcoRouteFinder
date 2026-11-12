@@ -8,6 +8,6 @@ export const tripsApi = {
   get: (id: number) => apiFetch<Trip>(`/trips/${id}`),
   create: (input: TripInput) => apiFetch<Trip>('/trips', { method: 'POST', body: input }),
   update: (id: number, input: Partial<TripInput>) =>
-    apiFetch<Trip>(`/trips/${id}`, { method: 'PUT', body: input }),
+    apiFetch<Trip>(`/trips/${id}`, { method: 'PATCH', body: input }),
   remove: (id: number) => apiFetch<void>(`/trips/${id}`, { method: 'DELETE' }),
 };

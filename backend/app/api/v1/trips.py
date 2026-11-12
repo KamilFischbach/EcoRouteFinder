@@ -24,7 +24,7 @@ def get_trip(trip_id: int, service: TripServiceDep) -> TripRead:
     return TripRead.model_validate(service.get_trip(trip_id))
 
 
-@router.put("/{trip_id}")
+@router.patch("/{trip_id}")
 def update_trip(trip_id: int, payload: TripUpdate, service: TripServiceDep) -> TripRead:
     return TripRead.model_validate(service.update_trip(trip_id, payload))
 
