@@ -25,7 +25,7 @@ from starlette.applications import Starlette
 
 from app.ai.tools import ToolRegistry, build_tool_registry
 from app.core.config import Settings, get_settings
-from app.db import engine, init_db
+from app.db import build_engine, init_db
 from app.repositories.trip_repository import TripRepository
 from app.services.comparison_service import ComparisonService
 from app.services.routing import RouteProvider, build_route_provider
@@ -105,7 +105,8 @@ async def _serve_stdio(server: Server[Any]) -> None:
 
 def main() -> None:
     settings = get_settings()
-    init_db()
+    engine = build_engine(settings.database_url)
+    init_db(engine)
     route_provider = build_route_provider(settings)
     weather = build_weather_service(settings, route_provider)
     server = build_mcp_server(build_mcp_registry(route_provider, weather, engine))

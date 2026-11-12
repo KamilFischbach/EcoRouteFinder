@@ -1,16 +1,16 @@
 """FastAPI dependencies. Wires repositories into services so routers only see services."""
 
+from collections.abc import Iterator
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from sqlmodel import Session
 
 from app.ai.advisor_agent import AdvisorAgent
 from app.ai.llm_client import LLMClient, build_llm_client
 from app.ai.tools import build_tool_registry
 from app.core.config import get_settings
-from app.db import get_session
 from app.repositories.comparison_repository import ComparisonRepository
 from app.repositories.trip_repository import TripRepository
 from app.services.advice_service import AdviceService
@@ -19,6 +19,13 @@ from app.services.routing import RouteProvider, build_route_provider
 from app.services.stats import StatsService
 from app.services.trip_service import TripService
 from app.services.weather import WeatherProvider, build_weather_service
+
+
+def get_session(request: Request) -> Iterator[Session]:
+    """One session per request, on the engine `create_app` keeps in `app.state`."""
+    with Session(request.app.state.engine) as session:
+        yield session
+
 
 SessionDep = Annotated[Session, Depends(get_session)]
 

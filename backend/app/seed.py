@@ -16,7 +16,8 @@ from datetime import date, timedelta
 
 from sqlmodel import Session
 
-from app.db import engine, init_db
+from app.core.config import get_settings
+from app.db import build_engine, init_db
 from app.models.trip import TransportMode, utc_today
 from app.repositories.trip_repository import TripRepository
 from app.schemas.trip import TripCreate
@@ -127,7 +128,8 @@ def main(argv: list[str] | None = None) -> int:
         help="add the demo trips even if the database already has trips (nothing is deleted)",
     )
     args = parser.parse_args(argv)
-    init_db()
+    engine = build_engine(get_settings().database_url)
+    init_db(engine)
     with Session(engine) as session:
         added = seed(TripService(TripRepository(session)), force=args.force)
     if added == 0:

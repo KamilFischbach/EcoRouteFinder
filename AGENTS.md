@@ -24,7 +24,7 @@ backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
                          GEOCODER_URL, ROUTING_URL, HTTP_TIMEOUT_S, HTTP_USER_AGENT, WEATHER_URL
   app/core/errors.py     Domain errors (NotFoundError, PlaceNotFoundError, RouteTooShortError,
                          ExternalServiceError). No HTTP here
-  app/db.py              engine, get_session (dependency), init_db (create tables at startup)
+  app/db.py              build_engine, init_db (create tables + upgrade steps); no engine at import time
   app/models/            SQLModel table models (DB shape only)
   app/models/            Trip, Comparison (result + advice stored as JSON)
   app/schemas/           Pydantic DTOs: request/response contracts + validation (trip, comparison, trip_draft, health)
@@ -53,7 +53,7 @@ backend/                 FastAPI + SQLModel + SQLite (Python 3.12)
     trip_parser.py         LLM parser (structured output + checks) -> trip_rules.py fallback
     advisor_agent.py       Tool loop, final structured answer, grounding check, rule_based_advice
     advice_facts.py        Advisor reasons built from data; checks the LLM summary's claims and numbers
-  app/api/deps.py        Dependency wiring; one RouteProvider / LLMClient / WeatherProvider per process
+  app/api/deps.py        Dependency wiring (get_session uses the engine create_app keeps in app.state); one RouteProvider / LLMClient / WeatherProvider per process
   app/api/error_handlers.py  Exception -> JSON error mapping (domain error -> status code table)
   app/api/v1/            Routers: health, trips, comparisons (+ /{id}/advice), trip_drafts, stats
   tests/conftest.py      In-memory SQLite; overrides for session, route provider, LLM (`llm` slot), weather

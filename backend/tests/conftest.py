@@ -10,8 +10,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, create_engine
 
-from app.api.deps import get_llm_client, get_route_provider, get_weather_service
-from app.db import get_session, init_db
+from app.api.deps import get_llm_client, get_route_provider, get_session, get_weather_service
+from app.db import init_db
 from app.main import create_app
 from tests.fakes import FakeLLMClient, FakeRouteProvider, FakeWeather, make_weather
 

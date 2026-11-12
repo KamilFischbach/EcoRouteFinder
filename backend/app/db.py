@@ -1,13 +1,14 @@
-"""Database engine, session dependency and schema initialisation."""
+"""Database engine factory and schema initialisation.
+
+No engine is created at import time: the application factory (`main.create_app`) and the
+command-line entry points (`seed`, `mcp_server`) each build one from their settings."""
 
 import json
-from collections.abc import Iterator
 
 from sqlalchemy import Connection, inspect, text
 from sqlalchemy.engine import Engine
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine
 
-from app.core.config import get_settings
 from app.services import comparison_snapshot
 
 
@@ -16,10 +17,7 @@ def build_engine(database_url: str) -> Engine:
     return create_engine(database_url, connect_args=connect_args)
 
 
-engine = build_engine(get_settings().database_url)
-
-
-def init_db(bind: Engine = engine) -> None:
+def init_db(bind: Engine) -> None:
     """Create missing tables and upgrade old data. Called once on application startup."""
     import app.models  # noqa: F401  (registers table models on SQLModel.metadata)
 
@@ -77,9 +75,3 @@ def _add_comparison_travelled_on(conn: Connection) -> None:
         return
     conn.execute(text("ALTER TABLE comparison ADD COLUMN travelled_on DATE"))
     conn.execute(text("UPDATE comparison SET travelled_on = date(created_at)"))
-
-
-def get_session() -> Iterator[Session]:
-    """FastAPI dependency yielding one session per request."""
-    with Session(engine) as session:
-        yield session
