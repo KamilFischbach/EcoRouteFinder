@@ -1,0 +1,29 @@
+# One command to run EcoRoute: `docker compose up --build`
+#   app: http://localhost:5173    API docs: http://localhost:8000/docs
+# Ollama is optional and runs on the host; without it the app uses its rule-based fallbacks.
+services:
+  backend:
+    build: ./backend
+    ports:
+      - '8000:8000'
+    environment:
+      CORS_ORIGINS: http://localhost:5173
+      OLLAMA_HOST: http://host.docker.internal:11434
+    extra_hosts:
+      # Lets the container reach Ollama on the host on Linux too (Docker Desktop has it built in).
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - ecoroute-data:/data
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000/api/v1
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+
+volumes:
+  ecoroute-data:
