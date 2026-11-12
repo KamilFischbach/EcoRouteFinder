@@ -157,7 +157,7 @@ npm run lint ; npm run typecheck ; npx vitest run ; npm run build
 
 - **Backend:** API tests for every status path and unit tests for services, all on in-memory SQLite. Fakes stand in for routing, weather and the LLM, so tests never use the network.
 - **Frontend:** React Testing Library queries by role and label (accessibility gets tested too), and MSW mocks the API.
-- **CI:** GitHub Actions runs all of the above on every push.
+- **CI:** GitHub Actions runs all of the above on every push. The runs currently fail before starting because the GitHub account is blocked from Actions (billing), not because of the code; the latest local results are in the [README](README.md#checks-and-ci).
 - On Windows, run Vitest from PowerShell. From Git Bash in `/c/...` it fails with "Vitest failed to find the runner".
 
 ## Trade-offs and what I'd do next

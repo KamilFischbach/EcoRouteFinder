@@ -11,6 +11,7 @@ A local LLM (via [Ollama](https://ollama.com)) parses free-text trips and acts a
 - [How I used AI](#how-i-used-ai)
 - [Getting started](#getting-started)
 - [Technical overview](#technical-overview)
+- [Checks and CI](#checks-and-ci)
 
 ## Demo
 
@@ -50,16 +51,43 @@ I built EcoRoute with **Claude Code** (VS Code extension) as a pair programmer, 
 
 ## Getting started
 
-Requirements: **Python 3.12+**, **Node.js 22+**, Git. Commands are for **PowerShell**; bash variants are in comments.
+### Quick start: one command (Docker)
 
-### 1. Backend (API on http://localhost:8000)
+Requirements: [Docker](https://docs.docker.com/get-docker/) with Compose.
+
+```bash
+docker compose up --build
+```
+
+- App: http://localhost:5173
+- API docs: http://localhost:8000/docs
+- Demo data for the dashboard (optional, in a second terminal): `docker compose exec backend python -m app.seed`
+- Trips are kept in the `ecoroute-data` volume; `docker compose down -v` deletes them.
+- Ollama is optional (see [step 3](#3-optional-local-ai-with-ollama)); if it runs on the host, the backend container finds it via `host.docker.internal`.
+
+### Manual setup
+
+Requirements: **Python 3.12+**, **Node.js 22+**, Git. Commands are for **bash** (Linux, macOS, Git Bash); the Windows PowerShell version follows each block.
+
+#### 1. Backend (API on http://localhost:8000)
+
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env                   # optional, defaults work
+uvicorn app.main:app --reload
+```
+
+PowerShell:
 
 ```powershell
 cd backend
-py -3.12 -m venv .venv                 # bash: python3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1           # bash: source .venv/bin/activate
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-Copy-Item .env.example .env            # optional, defaults work; bash: cp .env.example .env
+Copy-Item .env.example .env            # optional, defaults work
 uvicorn app.main:app --reload
 ```
 
@@ -70,24 +98,24 @@ uvicorn app.main:app --reload
 
 > If PowerShell blocks `Activate.ps1`, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once, or skip activation and call the venv directly: `.\.venv\Scripts\python -m uvicorn app.main:app --reload`.
 
-### 2. Frontend (app on http://localhost:5173)
+#### 2. Frontend (app on http://localhost:5173)
 
 In a second terminal:
 
-```powershell
+```bash
 cd frontend
 npm install
-Copy-Item .env.example .env.local      # optional; bash: cp .env.example .env.local
+cp .env.example .env.local             # optional; PowerShell: Copy-Item .env.example .env.local
 npm run dev
 ```
 
 `VITE_API_URL` defaults to `http://localhost:8000/api/v1`.
 
-### 3. Optional: local AI with Ollama
+#### 3. Optional: local AI with Ollama
 
 Install [Ollama](https://ollama.com/download), then pull the model once:
 
-```powershell
+```bash
 ollama pull qwen3:8b
 ollama list                            # should show qwen3:8b
 ```
@@ -103,6 +131,25 @@ All settings have working defaults; they are listed in [DETAILS.md](DETAILS.md#c
 - **Backend:** Python 3.12, FastAPI, SQLModel and SQLite, in layers: router → service → repository → database. Services never import FastAPI; all CO₂, cost and time maths is deterministic code.
 - **Frontend:** React 19, TypeScript (strict), Vite, TanStack Query, Tailwind CSS 4, Recharts.
 - **AI:** a local LLM via Ollama for the trip parser and EcoAdvisor, each with a rule-based fallback; an MCP server exposes the same tools to any AI agent.
-- **Quality:** pytest, ruff and mypy (strict); Vitest, React Testing Library and MSW; GitHub Actions runs all checks on every push. NOTE: CI fails because my account is blocked from running actions due to a payment error.
+- **Quality:** pytest, ruff and mypy (strict); Vitest, React Testing Library and MSW; a GitHub Actions workflow runs all checks on every push (see [Checks and CI](#checks-and-ci)).
 
 Everything else (project structure, configuration, the REST API, how emissions are calculated, route fallbacks, the dashboard maths, the AI and MCP design, how to run the tests) is in **[DETAILS.md](DETAILS.md)**.
+
+### Checks and CI
+
+**CI status: the GitHub Actions runs currently fail before any step starts**, because my GitHub account is blocked from running Actions (a billing/payment problem on the account, not a code problem). The workflow is in [.github/workflows/ci.yml](.github/workflows/ci.yml) and runs exactly the checks below.
+
+Last full local run (2026-11-12, Windows 11, Python 3.13, Node 24), all passing:
+
+| Check | Command | Result |
+|---|---|---|
+| Backend lint | `ruff check .` | All checks passed |
+| Backend format | `ruff format --check .` | 79 files already formatted |
+| Backend types | `mypy app` (strict) | No issues in 50 source files |
+| Backend tests | `pytest` | 456 passed |
+| Frontend lint | `npm run lint` (ESLint + Prettier) | Passed |
+| Frontend types | `npm run typecheck` | Passed |
+| Frontend tests | `npx vitest run` | 120 passed (17 files) |
+| Frontend build | `npm run build` | Built |
+
+To run them yourself: `ruff check . && ruff format --check . && mypy app && pytest` in `backend/`, and `npm run lint && npm run typecheck && npx vitest run && npm run build` in `frontend/` (in Windows PowerShell 5.1 use `;` instead of `&&`).
