@@ -15,14 +15,11 @@ A local LLM (via [Ollama](https://ollama.com)) parses free-text trips and acts a
 
 ## Demo
 
+▶ Watch the demo below. (The quality is kind of "meh" to keep the size of the file small.)
 
 https://github.com/user-attachments/assets/4e484083-027e-4aa7-b0f5-f028729c755c
 
-
-▶ Watch the demo below. (The quality is kind of "meh" to keep the size of the file small.)
-[![Download the demo video](demoThumbnail.png)](https://github.com/KamilFischbach/EcoRouteFinder/raw/main/ecoMin1080.mp4)
-
-The video file is in the repo: [ecoMin1080.mp4](https://github.com/KamilFischbach/EcoRouteFinder/raw/main/ecoMin1080.mp4) (~8 MB, click to download; GitHub can't preview files this large).
+The same video is in the repo as [ecoMin1080.mp4](https://github.com/KamilFischbach/EcoRouteFinder/raw/main/ecoMin1080.mp4) (~8 MB, opens as a download).
 
 ## Features
 
